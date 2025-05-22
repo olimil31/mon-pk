@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PK Tracker - Toulouse → Bayonne</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2rem; }
+    h1 { font-size: 2rem; margin-bottom: 1rem; }
+    #pk { font-size: 3rem; color: darkgreen; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Position PK (Toulouse → Bayonne)</h1>
+  <p>Géolocalisation en cours...</p>
+  <div id="pk">--</div>  <script>
+    let pkData = [];
+
+    // Chargement du CSV avec les PK
+    fetch('toulouse-bayonne_pk.csv')
+      .then(res => res.text())
+      .then(csv => {
+        const lines = csv.trim().split('\n').slice(1); // Skip header
+        pkData = lines.map(line => {
+          const [lat, lon, pk] = line.split(',');
+          return { lat: parseFloat(lat), lon: parseFloat(lon), pk: parseFloat(pk) };
+        });
+        locate();
+      });
+
+    function locate() {
+      if (!navigator.geolocation) {
+        document.querySelector('p').textContent = "La géolocalisation n'est pas supportée.";
+        return;
+      }
+      navigator.geolocation.watchPosition(position => {
+        const { latitude, longitude } = position.coords;
+        const closest = findClosestPK(latitude, longitude);
+        document.getElementById('pk').textContent = `PK ${closest.pk.toFixed(1)}`;
+        document.querySelector('p').textContent = `Latitude: ${latitude.toFixed(5)}, Longitude: ${longitude.toFixed(5)}`;
+      }, err => {
+        document.querySelector('p').textContent = `Erreur: ${err.message}`;
+      }, { enableHighAccuracy: true });
+    }
+
+    function findClosestPK(lat, lon) {
+      let minDist = Infinity;
+      let closest = pkData[0];
+      for (const point of pkData) {
+        const d = haversine(lat, lon, point.lat, point.lon);
+        if (d < minDist) {
+          minDist = d;
+          closest = point;
+        }
+      }
+      return closest;
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // m
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+  </script></body>
+</html>

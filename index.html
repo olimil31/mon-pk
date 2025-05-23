@@ -7,20 +7,42 @@
     body {
       font-family: sans-serif;
       padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    #pk {
+      font-size: 3em;
+      font-weight: bold;
+      margin: 20px 0;
     }
     p {
       font-size: 1.2em;
+    }
+    .night-mode {
+      background-color: black;
+      color: #00FF00;
+    }
+    #toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      font-size: 1em;
+      padding: 8px 12px;
     }
   </style>
   <script src="zones.js"></script>
 </head>
 <body>
-  <h1>Localisation PK </h1>
+  <button id="toggle">Mode nuit</button>
+  <h1>Localisation PK</h1>
   <p id="coords">Position : </p>
   <p id="pk">PK approx : </p>
   <p id="speed">Vitesse : </p>
 
   <script>
+    document.getElementById("toggle").addEventListener("click", () => {
+      document.body.classList.toggle("night-mode");
+    });
+
     function getCurrentZone(lat, lon) {
       for (const zone of zones) {
         if (

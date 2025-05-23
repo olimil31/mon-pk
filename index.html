@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="fr">
+<!DOCTYPE html><html lang="fr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -53,9 +52,6 @@
     margin: 6px 0;
     user-select: none;
   }
-  #speed.light-mode {
-    color: #003399;
-  }
   footer {
     padding: 10px 20px;
     background-color: #222;
@@ -78,11 +74,11 @@
     min-height: 48px;
     flex-grow: 1;
     max-width: 200px;
+    display: inline-block;
   }
   button:hover {
     background-color: #0055cc;
   }
-  /* Light mode */
   body.light-mode {
     background-color: #f0f4ff;
     color: #222;
@@ -98,7 +94,9 @@
     background-color: #003399;
     color: white;
   }
-  /* Responsive */
+  body.light-mode #pk-value {
+    color: #003399;
+  }
   @media (max-width: 480px) {
     #pk-value {
       font-size: 5rem;
@@ -117,144 +115,35 @@
     <div id="pk-value">--.--</div>
     <div id="pk-label">PK approximatif</div>
     <div id="coords">Position : --</div>
-    <div id="speed" class="">Vitesse : inconnue</div>
+    <div id="speed">Vitesse : inconnue</div>
   </main>
   <footer>
-    <button id="refresh" aria-label="Rafraîchir position">🔄 Rafraîchir position</button>
-    <button id="modeToggle" aria-label="Changer mode jour nuit">🌙 Mode Jour / Nuit</button>
+    <button id="refresh">🔄 Position</button>
+    <button id="modeToggle">🌙 Jour/Nuit</button>
   </footer>
-
 <script src="zones.js"></script>
 <script>
-  let currentZoneCode = null;
-  let pkScript = null;
-  let latestPosition = null;
+let currentZoneCode = null;
+let pkScript = null;
+let latestPosition = null;function getCurrentZone(lat, lon) { for (const zone of zones) { if ( lat >= zone.latMin && lat <= zone.latMax && lon >= zone.lonMin && lon <= zone.lonMax ) { return zone.code_ligne; } } return null; }
 
-  function getCurrentZone(lat, lon) {
-    for (const zone of zones) {
-      if (
-        lat >= zone.latMin && lat <= zone.latMax &&
-        lon >= zone.lonMin && lon <= zone.lonMax
-      ) {
-        return zone.code_ligne;
-      }
-    }
-    return null;
-  }
+function updatePosition(lat, lon) { latestPosition = { lat, lon }; const zoneCode = getCurrentZone(lat, lon); if (!zoneCode) { document.getElementById("pk-value").textContent = "--.--"; return; } if (zoneCode !== currentZoneCode) { currentZoneCode = zoneCode; if (pkScript) pkScript.remove(); pkScript = document.createElement("script"); pkScript.src = pks_${zoneCode}.js; pkScript.onload = () => showPK(lat, lon); document.head.appendChild(pkScript); } else if (typeof pkData !== "undefined") { showPK(lat, lon); } }
 
-  function updatePosition(lat, lon) {
-    latestPosition = { lat, lon };
-    const zoneCode = getCurrentZone(lat, lon);
-    if (!zoneCode) {
-      document.getElementById("pk-value").textContent = "--.--";
-      return;
-    }
+function showPK(lat, lon) { if (!pkData) { document.getElementById("pk-value").textContent = "--.--"; return; } const nearest = findNearestPK(lat, lon); document.getElementById("pk-value").textContent = nearest.pk.toFixed(2); }
 
-    if (zoneCode !== currentZoneCode) {
-      currentZoneCode = zoneCode;
-      if (pkScript) pkScript.remove();
+function findNearestPK(lat, lon) { let minDist = Infinity; let nearest = null; for (const point of pkData) { const d = Math.hypot(point.lat - lat, point.lon - lon); if (d < minDist) { minDist = d; nearest = point; } } return nearest; }
 
-      pkScript = document.createElement("script");
-      pkScript.src = `pks_${zoneCode}.js`;
-      pkScript.onload = () => {
-        showPK(lat, lon);
-      };
-      document.head.appendChild(pkScript);
-    } else if (typeof pkData !== "undefined") {
-      showPK(lat, lon);
-    }
-  }
+function updateSpeed(speed) { const el = document.getElementById("speed"); if (speed !== null && !isNaN(speed)) { const kmh = (speed * 3.6).toFixed(1); el.textContent = Vitesse : ${kmh} km/h; el.style.color = document.body.classList.contains("light-mode") ? "#003399" : "#99ff99"; } else { el.textContent = "Vitesse : inconnue"; el.style.color = ""; } }
 
-  function showPK(lat, lon) {
-    if (!pkData) {
-      document.getElementById("pk-value").textContent = "--.--";
-      return;
-    }
-    const nearest = findNearestPK(lat, lon);
-    document.getElementById("pk-value").textContent = nearest.pk.toFixed(2);
-  }
+function updateCoords(lat, lon) { document.getElementById("coords").textContent = Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}; }
 
-  function findNearestPK(lat, lon) {
-    let minDist = Infinity;
-    let nearest = null;
-    for (const point of pkData) {
-      const d = Math.hypot(point.lat - lat, point.lon - lon);
-      if (d < minDist) {
-        minDist = d;
-        nearest = point;
-      }
-    }
-    return nearest;
-  }
+function watchPosition() { if (!navigator.geolocation) { document.getElementById("coords").textContent = "Géolocalisation non supportée"; return; } navigator.geolocation.watchPosition( pos => { const { latitude, longitude, speed } = pos.coords; latestPosition = { lat: latitude, lon: longitude }; updateCoords(latitude, longitude); updateSpeed(speed); updatePosition(latitude, longitude); }, err => { document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 } ); }
 
-  function updateSpeed(speed) {
-    const speedDisplay = document.getElementById("speed");
-    if (speed !== null && !isNaN(speed)) {
-      const kmh = (speed * 3.6).toFixed(1);
-      speedDisplay.textContent = `Vitesse : ${kmh} km/h`;
-      if (document.body.classList.contains("light-mode")) {
-        speedDisplay.classList.add("light-mode");
-      } else {
-        speedDisplay.classList.remove("light-mode");
-      }
-    } else {
-      speedDisplay.textContent = "Vitesse : inconnue";
-      speedDisplay.classList.remove("light-mode");
-    }
-  }
+document.getElementById("refresh").addEventListener("click", () => { if (latestPosition) updatePosition(latestPosition.lat, latestPosition.lon); });
 
-  function updateCoords(lat, lon) {
-    document.getElementById("coords").textContent = `Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-  }
+document.getElementById("modeToggle").addEventListener("click", () => { document.body.classList.toggle("light-mode"); updateSpeed(latestPosition?.speed ?? null); });
 
-  function watchPosition() {
-    if (!navigator.geolocation) {
-      document.getElementById("coords").textContent = "Géolocalisation non supportée";
-      return;
-    }
-    navigator.geolocation.watchPosition(
-      pos => {
-        const { latitude, longitude, speed } = pos.coords;
-        latestPosition = { lat: latitude, lon: longitude };
-        updateCoords(latitude, longitude);
-        updateSpeed(speed);
-        updatePosition(latitude, longitude);
-      },
-      err => {
-        document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-    );
-  }
+window.onload = watchPosition; </script>
 
-  document.getElementById("refresh").addEventListener("click", () => {
-    if (latestPosition) {
-      updatePosition(latestPosition.lat, latestPosition.lon);
-    }
-  });
-
-  document.getElementById("modeToggle").addEventListener("click", () => {
-    document.body.classList.toggle("light-mode");
-    // change label icon/text
-    const btn = document.getElementById("modeToggle");
-    if (document.body.classList.contains("light-mode")) {
-      btn.textContent = "🌞 Mode Nuit";
-    } else {
-      btn.textContent = "🌙 Mode Jour";
-    }
-    // update speed color immediately
-    const speedDisplay = document.getElementById("speed");
-    if (speedDisplay.textContent.includes("Vitesse : inconnue")) return;
-    if (document.body.classList.contains("light-mode")) {
-      speedDisplay.classList.add("light-mode");
-    } else {
-      speedDisplay.classList.remove("light-mode");
-    }
-  });
-
-  window.onload = () => {
-    watchPosition();
-  };
-</script>
 </body>
 </html>

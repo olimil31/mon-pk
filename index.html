@@ -1,242 +1,107 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>PK SNCF - Géolocalisation</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 0; padding: 1em;
-    background-color: var(--bg);
-    color: var(--fg);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    height: 100vh;
-    transition: background-color 0.3s, color 0.3s;
-  }
-  :root {
-    --bg-light: #f0f0f0;
-    --fg-light: #222;
-    --bg-dark: #121212;
-    --fg-dark: #eee;
-  }
-  body.light {
-    --bg: var(--bg-light);
-    --fg: var(--fg-light);
-  }
-  body.dark {
-    --bg: var(--bg-dark);
-    --fg: var(--fg-dark);
-  }
-
-  h1 {
-    font-size: 3.5em;
-    margin: 0.2em 0;
-    font-weight: bold;
-  }
-  #pk {
-    font-size: 6em;
-    font-weight: 900;
-    margin: 0.2em 0 0.5em;
-    user-select: none;
-  }
-  #speed, #precision, #status, #alert {
-    font-size: 1.2em;
-    margin: 0.2em 0;
-  }
-  #controls {
-    margin-top: 1em;
-    display: flex;
-    gap: 1em;
-  }
-  button {
-    font-size: 1.2em;
-    padding: 0.5em 1em;
-    cursor: pointer;
-    border: none;
-    border-radius: 0.3em;
-    background-color: var(--fg);
-    color: var(--bg);
-    transition: background-color 0.3s, color 0.3s;
-  }
-  button:hover {
-    background-color: #555;
-  }
-  #themeToggle {
-    margin-top: 1em;
-    font-size: 1em;
-    cursor: pointer;
-    background: none;
-    border: none;
-    color: var(--fg);
-    text-decoration: underline;
-  }
-  #themeToggle:hover {
-    color: #0099ff;
-  }
-</style>
-</head>
-<body class="light">
-<h1>PK SNCF</h1>
-<div id="pk">--</div>
-<div id="speed">Vitesse : --</div>
-<div id="precision">Précision GPS : --</div>
-<div id="status"></div>
-<div id="alert" style="color: red; font-weight: bold;"></div>
-
-<div id="controls">
-  <button id="refreshBtn" title="Recentrer la position GPS">Rafraîchir GPS</button>
-  <button id="recalcBtn" title="Recalculer PK">Recalcul PK</button>
-</div>
-
-<button id="themeToggle" title="Changer thème clair/sombre">Passer en mode sombre</button>
-
-<script>
-// Remplace cette donnée par ton pkData chargé dynamiquement ou via fichier pks_xxxx.js
-// Exemple minimal, tu dois adapter à ta ligne :
-const pkData = [
-  { lat: 43.5460, lon: -1.1053, pk: 6.0 },
-  { lat: 43.5470, lon: -1.1060, pk: 6.1 },
-  { lat: 43.5480, lon: -1.1070, pk: 6.2 },
-  // ... ta donnée complète ici ...
-];
-
-// --- Gestion du thème ---
-const body = document.body;
-const themeToggle = document.getElementById('themeToggle');
-
-function applyTheme(theme) {
-  if(theme === 'dark'){
-    body.classList.remove('light');
-    body.classList.add('dark');
-    themeToggle.textContent = 'Passer en mode clair';
-  } else {
-    body.classList.remove('dark');
-    body.classList.add('light');
-    themeToggle.textContent = 'Passer en mode sombre';
-  }
-  localStorage.setItem('theme', theme);
-}
-themeToggle.onclick = () => {
-  const current = body.classList.contains('dark') ? 'dark' : 'light';
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-};
-const savedTheme = localStorage.getItem('theme') || 'light';
-applyTheme(savedTheme);
-
-// --- Sélection des éléments ---
-const pkEl = document.getElementById('pk');
-const speedEl = document.getElementById('speed');
-const precisionEl = document.getElementById('precision');
-const statusEl = document.getElementById('status');
-const alertEl = document.getElementById('alert');
-const refreshBtn = document.getElementById('refreshBtn');
-const recalcBtn = document.getElementById('recalcBtn');
-
-// --- Variables de suivi ---
-let currentPosition = null;
-
-// --- Fonction de calcul de distance en degrés (approx) ---
-function dist(lat1, lon1, lat2, lon2) {
-  // Distance Euclidienne simple sur degrés (approximation)
-  return Math.hypot(lat1 - lat2, lon1 - lon2);
-}
-
-// --- Recherche PK le plus proche ---
-function findNearestPK(lat, lon) {
-  let minDist = Infinity;
-  let nearest = null;
-  for(const point of pkData){
-    const d = dist(lat, lon, point.lat, point.lon);
-    if(d < minDist){
-      minDist = d;
-      nearest = point;
+  <meta charset="UTF-8">
+  <title>Localisation PK</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
     }
-  }
-  return nearest;
-}
+    p {
+      font-size: 1.2em;
+    }
+  </style>
+  <script src="zones.js"></script>
+</head>
+<body>
+  <h1>Localisation PK </h1>
+  <p id="coords">Position : </p>
+  <p id="pk">PK approx : </p>
+  <p id="speed">Vitesse : </p>
 
-// --- Mise à jour affichage ---
-function updateDisplay(position) {
-  if(!position){
-    statusEl.textContent = "Position inconnue.";
-    alertEl.textContent = "";
-    pkEl.textContent = "--";
-    speedEl.textContent = "Vitesse : --";
-    precisionEl.textContent = "Précision GPS : --";
-    return;
-  }
-  const { latitude: lat, longitude: lon, accuracy, speed } = position.coords;
+  <script>
+    function getCurrentZone(lat, lon) {
+      for (const zone of zones) {
+        if (
+          lat >= zone.latMin && lat <= zone.latMax &&
+          lon >= zone.lonMin && lon <= zone.lonMax
+        ) {
+          return zone.code_ligne;
+        }
+      }
+      return null;
+    }
 
-  const nearest = findNearestPK(lat, lon);
-  if(!nearest){
-    alertEl.textContent = "Aucun segment proche trouvé.";
-    pkEl.textContent = "--";
-  } else {
-    alertEl.textContent = "";
-    // Affiche PK en hectomètres (ex : 6.1 = 610)
-    pkEl.textContent = nearest.pk.toFixed(2);
-  }
+    let currentZoneCode = null;
+    let pkScript = null;
 
-  precisionEl.textContent = `Précision GPS : ${accuracy.toFixed(0)} m`;
+    function updatePosition(lat, lon) {
+      const zoneCode = getCurrentZone(lat, lon);
+      if (!zoneCode) {
+        document.getElementById("pk").textContent = "Zone inconnue";
+        return;
+      }
 
-  if(speed === null || speed === 0){
-    speedEl.textContent = "Vitesse : inconnue";
-  } else {
-    // speed en m/s -> km/h
-    speedEl.textContent = `Vitesse : ${(speed*3.6).toFixed(1)} km/h`;
-  }
+      if (zoneCode !== currentZoneCode) {
+        currentZoneCode = zoneCode;
+        if (pkScript) pkScript.remove();
 
-  statusEl.textContent = `Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        pkScript = document.createElement("script");
+        pkScript.src = `pks_${zoneCode}.js`;
+        pkScript.onload = () => {
+          const nearest = findNearestPK(lat, lon);
+          document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
+        };
+        document.head.appendChild(pkScript);
+      } else if (typeof pkData !== "undefined") {
+        const nearest = findNearestPK(lat, lon);
+        document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
+      }
+    }
 
-  currentPosition = position;
-  // Sauvegarde en localStorage
-  localStorage.setItem('lastPK', pkEl.textContent);
-}
+    function findNearestPK(lat, lon) {
+      let minDist = Infinity;
+      let nearest = null;
+      for (const point of pkData) {
+        const d = Math.hypot(point.lat - lat, point.lon - lon);
+        if (d < minDist) {
+          minDist = d;
+          nearest = point;
+        }
+      }
+      return nearest;
+    }
 
-// --- Gestion GPS ---
-function errorGPS(err){
-  statusEl.textContent = `Erreur GPS : ${err.message}`;
-  alertEl.textContent = "";
-  pkEl.textContent = "--";
-  speedEl.textContent = "Vitesse : --";
-  precisionEl.textContent = "Précision GPS : --";
-}
+    function init() {
+      if (!navigator.geolocation) {
+        document.getElementById("coords").textContent = "Géolocalisation non supportée";
+        return;
+      }
 
-function requestPosition(){
-  if(!navigator.geolocation){
-    statusEl.textContent = "Géolocalisation non supportée";
-    return;
-  }
-  statusEl.textContent = "Recherche position GPS...";
-  navigator.geolocation.getCurrentPosition(updateDisplay, errorGPS, {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 1000
-  });
-}
+      navigator.geolocation.watchPosition(
+        pos => {
+          const { latitude, longitude, speed } = pos.coords;
+          document.getElementById("coords").textContent =
+            `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 
-// --- Boutons ---
-refreshBtn.onclick = () => requestPosition();
-recalcBtn.onclick = () => {
-  if(!currentPosition){
-    alertEl.textContent = "Position inconnue, impossible de recalculer.";
-    return;
-  }
-  updateDisplay(currentPosition);
-};
+          if (speed !== null) {
+            const vitesse = (speed * 3.6).toFixed(1);
+            document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
+          } else {
+            document.getElementById("speed").textContent = "Vitesse : inconnue";
+          }
 
-// --- Au chargement ---
-// Restaure dernier PK si existant
-const lastPK = localStorage.getItem('lastPK');
-if(lastPK){
-  pkEl.textContent = lastPK;
-}
-requestPosition();
+          updatePosition(latitude, longitude);
+        },
+        err => {
+          document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+      );
+    }
 
-</script>
+    window.onload = init;
+  </script>
 </body>
 </html>

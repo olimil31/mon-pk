@@ -3,31 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="manifest" href="manifest.json" />
-  <title>Localisation PK SNCF</title>
+  <title>PK Finder - Toulouse Bayonne</title>
   <style>
-    body { font-family: sans-serif; padding: 1em; background: #f4f4f4; }
-    #info { margin-top: 1em; }
-    .card { background: white; padding: 1em; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 1em; }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background-color: #f4f4f4;
+    }
+    #coords, #pk {
+      font-size: 1.2em;
+      margin-top: 1em;
+    }
   </style>
   <script src="zones.js"></script>
-</head>
-<body>
-  <h1>Localisation PK (SNCF)</h1>
-  <div class="card" id="info">
-    <p><strong>Position :</strong> <span id="coords">...</span></p>
-    <p><strong>Vitesse :</strong> <span id="speed">...</span></p>
-    <p><strong>Ligne :</strong> <span id="ligne">...</span></p>
-    <p><strong>PK :</strong> <span id="pk">...</span></p>
-  </div>
-
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
+    function getCurrentZone(lat, lon) {
+      for (const zone of zones) {
+        if (
+          lat >= zone.latMin && lat <= zone.latMax &&
+          lon >= zone.lonMin && lon <= zone.lonMax
+        ) {
+          return zone.code_ligne;
+        }
+      }
+      return null;
     }
 
-    let pkData = [];
-    let currentLigne = null;
+    function updatePosition(lat, lon) {
+      const zoneCode = getCurrentZone(lat, lon);
+      if (!zoneCode) {
+        document.getElementById("pk").textContent = "Zone inconnue";
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = `pks_${zoneCode}.js`;
+      script.onload = () => {
+        const nearest = findNearestPK(lat, lon);
+        document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
+      };
+      document.head.appendChild(script);
+    }
 
     function findNearestPK(lat, lon) {
       let minDist = Infinity;
@@ -42,61 +59,32 @@
       return nearest;
     }
 
-    function getZoneFromCoords(lat, lon) {
-      for (const zone of zones) {
-        if (
-          lat >= zone.latMin && lat <= zone.latMax &&
-          lon >= zone.lonMin && lon <= zone.lonMax
-        ) {
-          return zone;
-        }
-      }
-      return null;
-    }
-
-    function loadPKData(code_ligne, callback) {
-      if (currentLigne === code_ligne) return callback(); // déjà chargé
-
-      const script = document.createElement("script");
-      script.src = `pks_${code_ligne}.js`;
-      script.onload = () => {
-        currentLigne = code_ligne;
-        callback();
-      };
-      document.head.appendChild(script);
-    }
-
-    function updateDisplay(lat, lon, speed) {
-      document.getElementById("coords").textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-      document.getElementById("speed").textContent = speed ? `${speed.toFixed(1)} km/h` : "0 km/h";
-
-      const zone = getZoneFromCoords(lat, lon);
-      if (!zone) {
-        document.getElementById("pk").textContent = "Hors zone";
-        document.getElementById("ligne").textContent = "—";
+    function init() {
+      if (!navigator.geolocation) {
+        document.getElementById("coords").textContent = "Géolocalisation non supportée";
         return;
       }
 
-      loadPKData(zone.code_ligne, () => {
-        const nearest = findNearestPK(lat, lon);
-        if (nearest) {
-          document.getElementById("pk").textContent = `${nearest.pk} km`;
-          document.getElementById("ligne").textContent = nearest.code_ligne;
-        } else {
-          document.getElementById("pk").textContent = "Non trouvé";
-          document.getElementById("ligne").textContent = zone.code_ligne;
-        }
-      });
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude, longitude } = pos.coords;
+          document.getElementById("coords").textContent =
+            `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+          updatePosition(latitude, longitude);
+        },
+        err => {
+          document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
+        },
+        { enableHighAccuracy: true }
+      );
     }
 
-    navigator.geolocation.watchPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      const speed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
-      updateDisplay(lat, lon, speed);
-    }, err => {
-      alert("Géolocalisation impossible.");
-    }, { enableHighAccuracy: true });
+    window.onload = init;
   </script>
+</head>
+<body>
+  <h1>Localisation en PK</h1>
+  <div id="coords">Position : ...</div>
+  <div id="pk">PK approx : ...</div>
 </body>
 </html>

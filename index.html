@@ -10,6 +10,7 @@
     #info { margin-top: 1em; }
     .card { background: white; padding: 1em; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 1em; }
   </style>
+  <script src="zones.js"></script>
 </head>
 <body>
   <h1>Localisation PK (SNCF)</h1>
@@ -20,9 +21,14 @@
     <p><strong>PK :</strong> <span id="pk">...</span></p>
   </div>
 
-  <script src="pks.js"></script>
   <script>
-    // Remplacement de la fonction findNearestPK pour toujours renvoyer le plus proche
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+
+    let pkData = [];
+    let currentLigne = null;
+
     function findNearestPK(lat, lon) {
       let minDist = Infinity;
       let nearest = null;
@@ -35,24 +41,52 @@
       }
       return nearest;
     }
-  </script>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
+    function getZoneFromCoords(lat, lon) {
+      for (const zone of zones) {
+        if (
+          lat >= zone.latMin && lat <= zone.latMax &&
+          lon >= zone.lonMin && lon <= zone.lonMax
+        ) {
+          return zone;
+        }
+      }
+      return null;
+    }
+
+    function loadPKData(code_ligne, callback) {
+      if (currentLigne === code_ligne) return callback(); // déjà chargé
+
+      const script = document.createElement("script");
+      script.src = `pks_${code_ligne}.js`;
+      script.onload = () => {
+        currentLigne = code_ligne;
+        callback();
+      };
+      document.head.appendChild(script);
     }
 
     function updateDisplay(lat, lon, speed) {
       document.getElementById("coords").textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
       document.getElementById("speed").textContent = speed ? `${speed.toFixed(1)} km/h` : "0 km/h";
-      const nearest = findNearestPK(lat, lon);
-      if (nearest) {
-        document.getElementById("pk").textContent = `${nearest.pk} km`;
-        document.getElementById("ligne").textContent = nearest.code_ligne;
-      } else {
-        document.getElementById("pk").textContent = "Non trouvé";
+
+      const zone = getZoneFromCoords(lat, lon);
+      if (!zone) {
+        document.getElementById("pk").textContent = "Hors zone";
         document.getElementById("ligne").textContent = "—";
+        return;
       }
+
+      loadPKData(zone.code_ligne, () => {
+        const nearest = findNearestPK(lat, lon);
+        if (nearest) {
+          document.getElementById("pk").textContent = `${nearest.pk} km`;
+          document.getElementById("ligne").textContent = nearest.code_ligne;
+        } else {
+          document.getElementById("pk").textContent = "Non trouvé";
+          document.getElementById("ligne").textContent = zone.code_ligne;
+        }
+      });
     }
 
     navigator.geolocation.watchPosition(pos => {
@@ -63,7 +97,6 @@
     }, err => {
       alert("Géolocalisation impossible.");
     }, { enableHighAccuracy: true });
-
   </script>
 </body>
 </html>

@@ -1,22 +1,25 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PK Finder - Toulouse Bayonne</title>
+  <meta charset="UTF-8">
+  <title>Localisation PK</title>
   <style>
     body {
       font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
-      background-color: #f4f4f4;
+      padding: 20px;
     }
-    #coords, #pk {
+    p {
       font-size: 1.2em;
-      margin-top: 1em;
     }
   </style>
   <script src="zones.js"></script>
+</head>
+<body>
+  <h1>Localisation PK (Toulouse - Bayonne)</h1>
+  <p id="coords">Position : </p>
+  <p id="pk">PK approx : </p>
+  <p id="speed">Vitesse : </p>
+
   <script>
     function getCurrentZone(lat, lon) {
       for (const zone of zones) {
@@ -30,6 +33,9 @@
       return null;
     }
 
+    let currentZoneCode = null;
+    let pkScript = null;
+
     function updatePosition(lat, lon) {
       const zoneCode = getCurrentZone(lat, lon);
       if (!zoneCode) {
@@ -37,13 +43,21 @@
         return;
       }
 
-      const script = document.createElement("script");
-      script.src = `pks_${zoneCode}.js`;
-      script.onload = () => {
+      if (zoneCode !== currentZoneCode) {
+        currentZoneCode = zoneCode;
+        if (pkScript) pkScript.remove();
+
+        pkScript = document.createElement("script");
+        pkScript.src = `pks_${zoneCode}.js`;
+        pkScript.onload = () => {
+          const nearest = findNearestPK(lat, lon);
+          document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
+        };
+        document.head.appendChild(pkScript);
+      } else if (typeof pkData !== "undefined") {
         const nearest = findNearestPK(lat, lon);
         document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
-      };
-      document.head.appendChild(script);
+      }
     }
 
     function findNearestPK(lat, lon) {
@@ -65,26 +79,29 @@
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
+      navigator.geolocation.watchPosition(
         pos => {
-          const { latitude, longitude } = pos.coords;
+          const { latitude, longitude, speed } = pos.coords;
           document.getElementById("coords").textContent =
             `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+
+          if (speed !== null) {
+            const vitesse = (speed * 3.6).toFixed(1);
+            document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
+          } else {
+            document.getElementById("speed").textContent = "Vitesse : inconnue";
+          }
+
           updatePosition(latitude, longitude);
         },
         err => {
           document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
       );
     }
 
     window.onload = init;
   </script>
-</head>
-<body>
-  <h1>Localisation en PK</h1>
-  <div id="coords">Position : ...</div>
-  <div id="pk">PK approx : ...</div>
 </body>
 </html>

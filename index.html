@@ -8,17 +8,19 @@
     body {
       margin: 0;
       font-family: sans-serif;
-      background-color: #000;
-      color: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
+      background-color: #000;
+      color: #fff;
+      transition: background-color 0.3s, color 0.3s;
     }
 
     #container {
       text-align: center;
+      max-width: 90vw;
     }
 
     #coords, #speed {
@@ -36,12 +38,11 @@
       font-size: 4em;
       font-weight: bold;
       color: #0f0;
-      text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
-      transition: opacity 0.3s ease-in-out;
+      margin: 0.3em 0;
     }
 
     button {
-      margin-top: 20px;
+      margin-top: 15px;
       padding: 10px 20px;
       font-size: 1em;
       background-color: #333;
@@ -53,6 +54,24 @@
     button:hover {
       background-color: #555;
     }
+
+    .light-mode {
+      background-color: #fff;
+      color: #000;
+    }
+
+    .light-mode #pk-value {
+      color: #090;
+    }
+
+    .light-mode button {
+      background-color: #ddd;
+      color: #000;
+    }
+
+    .light-mode button:hover {
+      background-color: #bbb;
+    }
   </style>
   <script src="zones.js"></script>
 </head>
@@ -63,6 +82,7 @@
     <p id="pk-label">PK approx :</p>
     <p id="pk-value">--.--</p>
     <button onclick="forceRefresh()">Rafraîchir la position</button>
+    <button onclick="toggleMode()">Basculer mode Jour/Nuit</button>
   </div>
 
   <script>
@@ -106,13 +126,9 @@
     }
 
     function showPK(lat, lon) {
-      const pkElement = document.getElementById("pk-value");
-      pkElement.style.opacity = 0;
-      setTimeout(() => {
-        const nearest = findNearestPK(lat, lon);
-        pkElement.textContent = nearest.pk.toFixed(2);
-        pkElement.style.opacity = 1;
-      }, 150);
+      const nearest = findNearestPK(lat, lon);
+      document.getElementById("pk-value").textContent = nearest.pk.toFixed(2);
+      document.getElementById("pk-label").textContent = "PK approx :";
     }
 
     function findNearestPK(lat, lon) {
@@ -162,6 +178,10 @@
       if (latestPosition) {
         updatePosition(latestPosition.lat, latestPosition.lon);
       }
+    }
+
+    function toggleMode() {
+      document.body.classList.toggle("light-mode");
     }
 
     window.onload = init;

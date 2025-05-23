@@ -178,7 +178,7 @@ function updateDisplay(position) {
   } else {
     alertEl.textContent = "";
     // Affiche PK en hectomètres (ex : 6.1 = 610)
-    pkEl.textContent = (nearest.pk*100).toFixed(0);
+    pkEl.textContent = nearest.pk.toFixed(2);
   }
 
   precisionEl.textContent = `Précision GPS : ${accuracy.toFixed(0)} m`;

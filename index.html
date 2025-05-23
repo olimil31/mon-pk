@@ -1,315 +1,230 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MON PK - Localisation SNCF</title>
-  <style>
-    /* Polices modernes */
-    @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap');
-
-    body {
-      margin: 0; padding: 0;
-      font-family: 'Raleway', 'Segoe UI', 'Helvetica Neue', sans-serif;
-      background: linear-gradient(135deg, #003399, #1a237e);
-      color: #ddd;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    header {
-      background-color: #222;
-      padding: 1rem 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      color: #fff;
-      font-weight: 700;
-      font-size: 1.8rem;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-    }
-
-    /* Navigation onglets */
-    nav {
-      display: flex;
-      gap: 1rem;
-    }
-    nav button {
-      background: transparent;
-      border: 2px solid #0055cc;
-      color: #aad4ff;
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background-color 0.3s, color 0.3s;
-      min-width: 80px;
-    }
-    nav button.active,
-    nav button:hover {
-      background-color: #0055cc;
-      color: #fff;
-    }
-
-    main {
-      flex-grow: 1;
-      padding: 1rem 1.5rem;
-      max-width: 600px;
-      margin: auto;
-      background-color: rgba(0,0,0,0.3);
-      border-radius: 12px;
-      box-shadow: 0 0 10px #003399aa;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      color: #eee;
-    }
-
-    #coords, #speed {
-      font-size: 1.2rem;
-      margin: 0.3rem 0;
-    }
-
-    /* Tableau PK */
-    table {
-      width: 100%;
-      margin-top: 1rem;
-      border-collapse: collapse;
-      background: #222;
-      border-radius: 8px;
-      overflow: hidden;
-      font-size: 1.5rem;
-    }
-    thead tr {
-      background-color: #0055cc;
-      color: white;
-    }
-    tbody tr:nth-child(odd) {
-      background-color: #0a1a4d;
-    }
-    tbody tr:nth-child(even) {
-      background-color: #142b7f;
-    }
-    td, th {
-      padding: 0.8rem 1rem;
-      text-align: center;
-    }
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Localisation PK - Moderne</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+  body {
+    margin: 0; padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background-color: #121212;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    background-color: #003399;
+    color: white;
+    padding: 12px 20px;
+    font-weight: 700;
+    font-size: 1.6rem;
+    text-align: center;
+    user-select: none;
+  }
+  main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 0 15px;
+  }
+  #pk-value {
+    font-size: 7rem;
+    font-weight: 900;
+    color: #99ff99;
+    user-select: none;
+    margin-bottom: 0.3em;
+  }
+  #pk-label {
+    font-size: 1.2rem;
+    opacity: 0.7;
+    margin-bottom: 1.5rem;
+    user-select: none;
+  }
+  #coords, #speed {
+    font-size: 1.1rem;
+    margin: 6px 0;
+    user-select: none;
+  }
+  footer {
+    padding: 10px 20px;
+    background-color: #222;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+  }
+  button {
+    background-color: #003399;
+    border: none;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    min-width: 140px;
+  }
+  button:hover {
+    background-color: #0055cc;
+  }
+  /* Light mode */
+  body.light-mode {
+    background-color: #f0f4ff;
+    color: #222;
+  }
+  body.light-mode header {
+    background-color: #99bbff;
+    color: #111;
+  }
+  body.light-mode footer {
+    background-color: #c0d4ff;
+  }
+  body.light-mode button {
+    background-color: #003399;
+    color: white;
+  }
+  /* Responsive */
+  @media (max-width: 480px) {
     #pk-value {
-      font-weight: 900;
-      font-size: 3.5rem;
-      color: #99ff99;
+      font-size: 5rem;
     }
-
-    button#refresh, button#modeToggle {
-      margin-top: 1.5rem;
-      padding: 14px 24px;
-      font-size: 1.2rem;
-      border-radius: 12px;
-      border: none;
-      background-color: #0055cc;
-      color: #fff;
-      cursor: pointer;
-      min-width: 200px;
-      transition: background-color 0.3s;
+    button {
+      min-width: 120px;
+      padding: 8px 16px;
+      font-size: 1rem;
     }
-    button#refresh:hover, button#modeToggle:hover {
-      background-color: #003d99;
-    }
-
-    /* Responsive mobile */
-    @media (max-width: 480px) {
-      header {
-        font-size: 1.4rem;
-        padding: 1rem;
-      }
-      nav {
-        gap: 0.5rem;
-      }
-      nav button {
-        min-width: 60px;
-        padding: 0.4rem 0.8rem;
-        font-size: 1rem;
-      }
-      main {
-        padding: 1rem;
-        max-width: 100%;
-      }
-      table {
-        font-size: 1.2rem;
-      }
-      button#refresh, button#modeToggle {
-        min-width: 100%;
-        font-size: 1rem;
-        padding: 12px;
-      }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
-  <header>
-    <div>MON PK</div>
-    <nav id="lineTabs">
-      <button class="active" data-line="TE">TE</button>
-      <button data-line="BYE">BYE</button>
-      <!-- Ajouter d'autres lignes ici -->
-    </nav>
-  </header>
-
+  <header>Localisation PK SNCF</header>
   <main>
-    <p id="coords">Position : --</p>
-    <p id="speed">Vitesse : inconnue</p>
-    <table>
-      <thead>
-        <tr><th>Libellé</th><th>Valeur</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>PK approx</td><td id="pk-value">--.--</td></tr>
-      </tbody>
-    </table>
-
-    <button id="refresh">Rafraîchir la position</button>
-    <button id="modeToggle">Basculer mode Jour/Nuit</button>
+    <div id="pk-value">--.--</div>
+    <div id="pk-label">PK approximatif</div>
+    <div id="coords">Position : --</div>
+    <div id="speed">Vitesse : inconnue</div>
   </main>
+  <footer>
+    <button id="refresh">Rafraîchir position</button>
+    <button id="modeToggle">Mode Jour / Nuit</button>
+  </footer>
 
-  <script src="zones.js"></script>
-  <script>
-    let currentLine = "TE";
-    let currentZoneCode = null;
-    let pkScript = null;
-    let latestPosition = null;
+<script src="zones.js"></script>
+<script>
+  let currentZoneCode = null;
+  let pkScript = null;
+  let latestPosition = null;
 
-    // Changer de ligne via onglets
-    const tabs = document.querySelectorAll("#lineTabs button");
-    tabs.forEach(tab => {
-      tab.addEventListener("click", () => {
-        if (tab.dataset.line !== currentLine) {
-          tabs.forEach(t => t.classList.remove("active"));
-          tab.classList.add("active");
-          currentLine = tab.dataset.line;
-          currentZoneCode = null;
-          if (pkScript) pkScript.remove();
-          if (latestPosition) updatePosition(latestPosition.lat, latestPosition.lon);
-        }
-      });
-    });
-
-    function getCurrentZone(lat, lon) {
-      for (const zone of zones) {
-        if (
-          lat >= zone.latMin && lat <= zone.latMax &&
-          lon >= zone.lonMin && lon <= zone.lonMax &&
-          zone.code_ligne === currentLine
-        ) {
-          return zone.code_ligne;
-        }
+  function getCurrentZone(lat, lon) {
+    for (const zone of zones) {
+      if (
+        lat >= zone.latMin && lat <= zone.latMax &&
+        lon >= zone.lonMin && lon <= zone.lonMax
+      ) {
+        return zone.code_ligne;
       }
-      return null;
+    }
+    return null;
+  }
+
+  function updatePosition(lat, lon) {
+    latestPosition = { lat, lon };
+    const zoneCode = getCurrentZone(lat, lon);
+    if (!zoneCode) {
+      document.getElementById("pk-value").textContent = "--.--";
+      return;
     }
 
-    function updatePosition(lat, lon) {
-      latestPosition = { lat, lon };
-      const zoneCode = getCurrentZone(lat, lon);
-      if (!zoneCode) {
-        document.getElementById("pk-value").textContent = "--.--";
-        return;
-      }
+    if (zoneCode !== currentZoneCode) {
+      currentZoneCode = zoneCode;
+      if (pkScript) pkScript.remove();
 
-      if (zoneCode !== currentZoneCode) {
-        currentZoneCode = zoneCode;
-        if (pkScript) pkScript.remove();
-
-        pkScript = document.createElement("script");
-        pkScript.src = `pks_${zoneCode}.js`;
-        pkScript.onload = () => {
-          showPK(lat, lon);
-        };
-        document.head.appendChild(pkScript);
-      } else if (typeof pkData !== "undefined") {
+      pkScript = document.createElement("script");
+      pkScript.src = `pks_${zoneCode}.js`;
+      pkScript.onload = () => {
         showPK(lat, lon);
+      };
+      document.head.appendChild(pkScript);
+    } else if (typeof pkData !== "undefined") {
+      showPK(lat, lon);
+    }
+  }
+
+  function showPK(lat, lon) {
+    if (!pkData) {
+      document.getElementById("pk-value").textContent = "--.--";
+      return;
+    }
+    const nearest = findNearestPK(lat, lon);
+    document.getElementById("pk-value").textContent = nearest.pk.toFixed(2);
+  }
+
+  function findNearestPK(lat, lon) {
+    let minDist = Infinity;
+    let nearest = null;
+    for (const point of pkData) {
+      const d = Math.hypot(point.lat - lat, point.lon - lon);
+      if (d < minDist) {
+        minDist = d;
+        nearest = point;
       }
     }
+    return nearest;
+  }
 
-    function showPK(lat, lon) {
-      if (!pkData) {
-        document.getElementById("pk-value").textContent = "--.--";
-        return;
-      }
-      const nearest = findNearestPK(lat, lon);
-      document.getElementById("pk-value").textContent = nearest.pk.toFixed(2);
+  function updateSpeed(speed) {
+    const speedDisplay = document.getElementById("speed");
+    if (speed !== null && !isNaN(speed)) {
+      const kmh = (speed * 3.6).toFixed(1);
+      speedDisplay.textContent = `Vitesse : ${kmh} km/h`;
+    } else {
+      speedDisplay.textContent = "Vitesse : inconnue";
     }
+  }
 
-    function findNearestPK(lat, lon) {
-      let minDist = Infinity;
-      let nearest = null;
-      for (const point of pkData) {
-        const d = Math.hypot(point.lat - lat, point.lon - lon);
-        if (d < minDist) {
-          minDist = d;
-          nearest = point;
-        }
-      }
-      return nearest;
+  function updateCoords(lat, lon) {
+    document.getElementById("coords").textContent = `Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  }
+
+  function watchPosition() {
+    if (!navigator.geolocation) {
+      document.getElementById("coords").textContent = "Géolocalisation non supportée";
+      return;
     }
+    navigator.geolocation.watchPosition(
+      pos => {
+        const { latitude, longitude, speed } = pos.coords;
+        latestPosition = { lat: latitude, lon: longitude };
+        updateCoords(latitude, longitude);
+        updateSpeed(speed);
+        updatePosition(latitude, longitude);
+      },
+      err => {
+        document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+  }
 
-    function init() {
-      if (!navigator.geolocation) {
-        document.getElementById("coords").textContent = "Géolocalisation non supportée";
-        return;
-      }
-
-      navigator.geolocation.watchPosition(
-        pos => {
-          const { latitude, longitude, speed } = pos.coords;
-          latestPosition = { lat: latitude, lon: longitude };
-          document.getElementById("coords").textContent =
-            `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-          if (speed !== null) {
-            const vitesse = (speed * 3.6).toFixed(1);
-            document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
-          } else {
-            document.getElementById("speed").textContent = "Vitesse : inconnue";
-          }
-          updatePosition(latitude, longitude);
-        },
-        err => {
-          document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-      );
+  document.getElementById("refresh").addEventListener("click", () => {
+    if (latestPosition) {
+      updatePosition(latestPosition.lat, latestPosition.lon);
     }
+  });
 
-    document.getElementById("refresh").addEventListener("click", () => {
-      if (latestPosition) updatePosition(latestPosition.lat, latestPosition.lon);
-    });
+  document.getElementById("modeToggle").addEventListener("click", () => {
+    document.body.classList.toggle("light-mode");
+  });
 
-    document.getElementById("modeToggle").addEventListener("click", () => {
-      document.body.classList.toggle("light-mode");
-    });
-
-    // Mode clair / sombre
-    const lightBg = "linear-gradient(135deg, #aad4ff, #f0f4ff)";
-    const darkBg = "linear-gradient(135deg, #003399, #1a237e)";
-
-    function setLightMode(on) {
-      if(on){
-        document.body.style.background = lightBg;
-        document.body.style.color = "#111";
-      } else {
-        document.body.style.background = darkBg;
-        document.body.style.color = "#ddd";
-      }
-    }
-
-    document.getElementById("modeToggle").addEventListener("click", () => {
-      const isLight = document.body.style.background === lightBg;
-      setLightMode(!isLight);
-    });
-
-    // Initialisation
-    setLightMode(false);
-    window.onload = init;
-  </script>
+  window.onload = () => {
+    watchPosition();
+  };
+</script>
 </body>
 </html>

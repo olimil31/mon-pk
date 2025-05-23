@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Localisation PK - Moderne</title>
+<title>Localisation PK - Mobile Friendly</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
   body {
@@ -32,6 +32,7 @@
     justify-content: center;
     align-items: center;
     padding: 0 15px;
+    text-align: center;
   }
   #pk-value {
     font-size: 7rem;
@@ -39,6 +40,7 @@
     color: #99ff99;
     user-select: none;
     margin-bottom: 0.3em;
+    line-height: 1;
   }
   #pk-label {
     font-size: 1.2rem;
@@ -51,12 +53,16 @@
     margin: 6px 0;
     user-select: none;
   }
+  #speed.light-mode {
+    color: #003399;
+  }
   footer {
     padding: 10px 20px;
     background-color: #222;
     display: flex;
     justify-content: center;
     gap: 20px;
+    flex-wrap: wrap;
   }
   button {
     background-color: #003399;
@@ -64,11 +70,14 @@
     color: white;
     font-weight: 700;
     font-size: 1.1rem;
-    padding: 10px 20px;
+    padding: 14px 20px;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease;
-    min-width: 140px;
+    min-width: 48px;
+    min-height: 48px;
+    flex-grow: 1;
+    max-width: 200px;
   }
   button:hover {
     background-color: #0055cc;
@@ -95,8 +104,8 @@
       font-size: 5rem;
     }
     button {
-      min-width: 120px;
-      padding: 8px 16px;
+      max-width: 100%;
+      padding: 12px 0;
       font-size: 1rem;
     }
   }
@@ -108,11 +117,11 @@
     <div id="pk-value">--.--</div>
     <div id="pk-label">PK approximatif</div>
     <div id="coords">Position : --</div>
-    <div id="speed">Vitesse : inconnue</div>
+    <div id="speed" class="">Vitesse : inconnue</div>
   </main>
   <footer>
-    <button id="refresh">Rafraîchir position</button>
-    <button id="modeToggle">Mode Jour / Nuit</button>
+    <button id="refresh" aria-label="Rafraîchir position">🔄 Rafraîchir position</button>
+    <button id="modeToggle" aria-label="Changer mode jour nuit">🌙 Mode Jour / Nuit</button>
   </footer>
 
 <script src="zones.js"></script>
@@ -183,8 +192,14 @@
     if (speed !== null && !isNaN(speed)) {
       const kmh = (speed * 3.6).toFixed(1);
       speedDisplay.textContent = `Vitesse : ${kmh} km/h`;
+      if (document.body.classList.contains("light-mode")) {
+        speedDisplay.classList.add("light-mode");
+      } else {
+        speedDisplay.classList.remove("light-mode");
+      }
     } else {
       speedDisplay.textContent = "Vitesse : inconnue";
+      speedDisplay.classList.remove("light-mode");
     }
   }
 
@@ -220,6 +235,21 @@
 
   document.getElementById("modeToggle").addEventListener("click", () => {
     document.body.classList.toggle("light-mode");
+    // change label icon/text
+    const btn = document.getElementById("modeToggle");
+    if (document.body.classList.contains("light-mode")) {
+      btn.textContent = "🌞 Mode Nuit";
+    } else {
+      btn.textContent = "🌙 Mode Jour";
+    }
+    // update speed color immediately
+    const speedDisplay = document.getElementById("speed");
+    if (speedDisplay.textContent.includes("Vitesse : inconnue")) return;
+    if (document.body.classList.contains("light-mode")) {
+      speedDisplay.classList.add("light-mode");
+    } else {
+      speedDisplay.classList.remove("light-mode");
+    }
   });
 
   window.onload = () => {

@@ -2,95 +2,205 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Localisation PK</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MON PK - Localisation SNCF</title>
   <style>
+    /* Polices modernes */
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap');
+
     body {
-      margin: 0;
-      font-family: sans-serif;
+      margin: 0; padding: 0;
+      font-family: 'Raleway', 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #003399, #1a237e);
+      color: #ddd;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: #222;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.8rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    }
+
+    /* Navigation onglets */
+    nav {
+      display: flex;
+      gap: 1rem;
+    }
+    nav button {
+      background: transparent;
+      border: 2px solid #0055cc;
+      color: #aad4ff;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.3s;
+      min-width: 80px;
+    }
+    nav button.active,
+    nav button:hover {
+      background-color: #0055cc;
+      color: #fff;
+    }
+
+    main {
+      flex-grow: 1;
+      padding: 1rem 1.5rem;
+      max-width: 600px;
+      margin: auto;
+      background-color: rgba(0,0,0,0.3);
+      border-radius: 12px;
+      box-shadow: 0 0 10px #003399aa;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: #000;
-      color: #fff;
-      transition: background-color 0.3s, color 0.3s;
-    }
-
-    #container {
-      text-align: center;
-      max-width: 90vw;
+      color: #eee;
     }
 
     #coords, #speed {
-      font-size: 1.2em;
-      margin: 5px 0;
+      font-size: 1.2rem;
+      margin: 0.3rem 0;
     }
 
-    #pk-label {
-      font-size: 1em;
-      color: #aaa;
+    /* Tableau PK */
+    table {
+      width: 100%;
+      margin-top: 1rem;
+      border-collapse: collapse;
+      background: #222;
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 1.5rem;
+    }
+    thead tr {
+      background-color: #0055cc;
+      color: white;
+    }
+    tbody tr:nth-child(odd) {
+      background-color: #0a1a4d;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #142b7f;
+    }
+    td, th {
+      padding: 0.8rem 1rem;
+      text-align: center;
     }
 
     #pk-value {
-      font-family: monospace;
-      font-size: 4em;
-      font-weight: bold;
-      color: #0f0;
-      margin: 0.3em 0;
+      font-weight: 900;
+      font-size: 3.5rem;
+      color: #99ff99;
     }
 
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-size: 1em;
-      background-color: #333;
-      color: #fff;
+    button#refresh, button#modeToggle {
+      margin-top: 1.5rem;
+      padding: 14px 24px;
+      font-size: 1.2rem;
+      border-radius: 12px;
       border: none;
-      border-radius: 8px;
+      background-color: #0055cc;
+      color: #fff;
+      cursor: pointer;
+      min-width: 200px;
+      transition: background-color 0.3s;
+    }
+    button#refresh:hover, button#modeToggle:hover {
+      background-color: #003d99;
     }
 
-    button:hover {
-      background-color: #555;
-    }
-
-    .light-mode {
-      background-color: #fff;
-      color: #000;
-    }
-
-    .light-mode #pk-value {
-      color: #090;
-    }
-
-    .light-mode button {
-      background-color: #ddd;
-      color: #000;
-    }
-
-    .light-mode button:hover {
-      background-color: #bbb;
+    /* Responsive mobile */
+    @media (max-width: 480px) {
+      header {
+        font-size: 1.4rem;
+        padding: 1rem;
+      }
+      nav {
+        gap: 0.5rem;
+      }
+      nav button {
+        min-width: 60px;
+        padding: 0.4rem 0.8rem;
+        font-size: 1rem;
+      }
+      main {
+        padding: 1rem;
+        max-width: 100%;
+      }
+      table {
+        font-size: 1.2rem;
+      }
+      button#refresh, button#modeToggle {
+        min-width: 100%;
+        font-size: 1rem;
+        padding: 12px;
+      }
     }
   </style>
-  <script src="zones.js"></script>
 </head>
 <body>
-  <div id="container">
-    <p id="coords">Position : </p>
-    <p id="speed">Vitesse : </p>
-    <p id="pk-label">PK approx :</p>
-    <p id="pk-value">--.--</p>
-    <button onclick="forceRefresh()">Rafraîchir la position</button>
-    <button onclick="toggleMode()">Basculer mode Jour/Nuit</button>
-  </div>
+  <header>
+    <div>MON PK</div>
+    <nav id="lineTabs">
+      <button class="active" data-line="TE">TE</button>
+      <button data-line="BYE">BYE</button>
+      <!-- Ajouter d'autres lignes ici -->
+    </nav>
+  </header>
 
+  <main>
+    <p id="coords">Position : --</p>
+    <p id="speed">Vitesse : inconnue</p>
+    <table>
+      <thead>
+        <tr><th>Libellé</th><th>Valeur</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>PK approx</td><td id="pk-value">--.--</td></tr>
+      </tbody>
+    </table>
+
+    <button id="refresh">Rafraîchir la position</button>
+    <button id="modeToggle">Basculer mode Jour/Nuit</button>
+  </main>
+
+  <script src="zones.js"></script>
   <script>
+    let currentLine = "TE";
+    let currentZoneCode = null;
+    let pkScript = null;
+    let latestPosition = null;
+
+    // Changer de ligne via onglets
+    const tabs = document.querySelectorAll("#lineTabs button");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        if (tab.dataset.line !== currentLine) {
+          tabs.forEach(t => t.classList.remove("active"));
+          tab.classList.add("active");
+          currentLine = tab.dataset.line;
+          currentZoneCode = null;
+          if (pkScript) pkScript.remove();
+          if (latestPosition) updatePosition(latestPosition.lat, latestPosition.lon);
+        }
+      });
+    });
+
     function getCurrentZone(lat, lon) {
       for (const zone of zones) {
         if (
           lat >= zone.latMin && lat <= zone.latMax &&
-          lon >= zone.lonMin && lon <= zone.lonMax
+          lon >= zone.lonMin && lon <= zone.lonMax &&
+          zone.code_ligne === currentLine
         ) {
           return zone.code_ligne;
         }
@@ -98,15 +208,11 @@
       return null;
     }
 
-    let currentZoneCode = null;
-    let pkScript = null;
-    let latestPosition = null;
-
     function updatePosition(lat, lon) {
+      latestPosition = { lat, lon };
       const zoneCode = getCurrentZone(lat, lon);
       if (!zoneCode) {
         document.getElementById("pk-value").textContent = "--.--";
-        document.getElementById("pk-label").textContent = "Hors zone";
         return;
       }
 
@@ -126,9 +232,12 @@
     }
 
     function showPK(lat, lon) {
+      if (!pkData) {
+        document.getElementById("pk-value").textContent = "--.--";
+        return;
+      }
       const nearest = findNearestPK(lat, lon);
       document.getElementById("pk-value").textContent = nearest.pk.toFixed(2);
-      document.getElementById("pk-label").textContent = "PK approx :";
     }
 
     function findNearestPK(lat, lon) {
@@ -154,17 +263,14 @@
         pos => {
           const { latitude, longitude, speed } = pos.coords;
           latestPosition = { lat: latitude, lon: longitude };
-
           document.getElementById("coords").textContent =
             `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-
           if (speed !== null) {
             const vitesse = (speed * 3.6).toFixed(1);
             document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
           } else {
             document.getElementById("speed").textContent = "Vitesse : inconnue";
           }
-
           updatePosition(latitude, longitude);
         },
         err => {
@@ -174,16 +280,35 @@
       );
     }
 
-    function forceRefresh() {
-      if (latestPosition) {
-        updatePosition(latestPosition.lat, latestPosition.lon);
+    document.getElementById("refresh").addEventListener("click", () => {
+      if (latestPosition) updatePosition(latestPosition.lat, latestPosition.lon);
+    });
+
+    document.getElementById("modeToggle").addEventListener("click", () => {
+      document.body.classList.toggle("light-mode");
+    });
+
+    // Mode clair / sombre
+    const lightBg = "linear-gradient(135deg, #aad4ff, #f0f4ff)";
+    const darkBg = "linear-gradient(135deg, #003399, #1a237e)";
+
+    function setLightMode(on) {
+      if(on){
+        document.body.style.background = lightBg;
+        document.body.style.color = "#111";
+      } else {
+        document.body.style.background = darkBg;
+        document.body.style.color = "#ddd";
       }
     }
 
-    function toggleMode() {
-      document.body.classList.toggle("light-mode");
-    }
+    document.getElementById("modeToggle").addEventListener("click", () => {
+      const isLight = document.body.style.background === lightBg;
+      setLightMode(!isLight);
+    });
 
+    // Initialisation
+    setLightMode(false);
     window.onload = init;
   </script>
 </body>

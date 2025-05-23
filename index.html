@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Localisation PK SNCF</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; background: #f4f4f4; }
+    #info { margin-top: 1em; }
+    .card { background: white; padding: 1em; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 1em; }
+  </style>
+</head>
+<body>
+  <h1>Localisation PK (SNCF)</h1>
+  <div class="card" id="info">
+    <p><strong>Position :</strong> <span id="coords">...</span></p>
+    <p><strong>Vitesse :</strong> <span id="speed">...</span></p>
+    <p><strong>Ligne :</strong> <span id="ligne">...</span></p>
+    <p><strong>PK :</strong> <span id="pk">...</span></p>
+  </div>
+
+  <script src="pks.js"></script>
+  <script>
+    // Remplacement de la fonction findNearestPK pour toujours renvoyer le plus proche
+    function findNearestPK(lat, lon) {
+      let minDist = Infinity;
+      let nearest = null;
+      for (const point of pkData) {
+        const d = Math.hypot(point.lat - lat, point.lon - lon);
+        if (d < minDist) {
+          minDist = d;
+          nearest = point;
+        }
+      }
+      return nearest;
+    }
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+
+    function updateDisplay(lat, lon, speed) {
+      document.getElementById("coords").textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      document.getElementById("speed").textContent = speed ? `${speed.toFixed(1)} km/h` : "0 km/h";
+      const nearest = findNearestPK(lat, lon);
+      if (nearest) {
+        document.getElementById("pk").textContent = `${nearest.pk} km`;
+        document.getElementById("ligne").textContent = nearest.code_ligne;
+      } else {
+        document.getElementById("pk").textContent = "Non trouvé";
+        document.getElementById("ligne").textContent = "—";
+      }
+    }
+
+    navigator.geolocation.watchPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const speed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+      updateDisplay(lat, lon, speed);
+    }, err => {
+      alert("Géolocalisation impossible.");
+    }, { enableHighAccuracy: true });
+
+  </script>
+</body>
+</html>

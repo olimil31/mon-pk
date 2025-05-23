@@ -1,71 +1,71 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Localisation PK</title>
   <style>
     body {
-      font-family: sans-serif;
       margin: 0;
-      padding: 0;
+      font-family: sans-serif;
+      background-color: #000;
+      color: #fff;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      background: #f9f9f9;
-      color: #111;
-      transition: background 0.3s, color 0.3s;
     }
 
-    #pk {
-      font-size: 4em;
-      font-weight: bold;
-      margin: 20px 0 10px;
+    #container {
+      text-align: center;
     }
 
-    p {
+    #coords, #speed {
       font-size: 1.2em;
       margin: 5px 0;
     }
 
-    #toggle {
-      position: absolute;
-      top: 10px;
-      right: 10px;
+    #pk-label {
       font-size: 1em;
-      padding: 10px 14px;
-      border: none;
+      color: #aaa;
+    }
+
+    #pk-value {
+      font-family: monospace;
+      font-size: 4em;
+      font-weight: bold;
+      color: #0f0;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+      transition: opacity 0.3s ease-in-out;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1em;
       background-color: #333;
-      color: white;
+      color: #fff;
+      border: none;
       border-radius: 8px;
-      cursor: pointer;
     }
 
-    .night-mode {
-      background-color: black;
-      color: #00FF00;
-    }
-
-    .night-mode #toggle {
-      background-color: #00FF00;
-      color: black;
+    button:hover {
+      background-color: #555;
     }
   </style>
   <script src="zones.js"></script>
 </head>
 <body>
-  <button id="toggle">Mode nuit</button>
-  <div id="pk">PK approx : ...</div>
-  <p id="coords">Position : </p>
-  <p id="speed">Vitesse : </p>
+  <div id="container">
+    <p id="coords">Position : </p>
+    <p id="speed">Vitesse : </p>
+    <p id="pk-label">PK approx :</p>
+    <p id="pk-value">--.--</p>
+    <button onclick="forceRefresh()">Rafraîchir la position</button>
+  </div>
 
   <script>
-    document.getElementById("toggle").addEventListener("click", () => {
-      document.body.classList.toggle("night-mode");
-    });
-
     function getCurrentZone(lat, lon) {
       for (const zone of zones) {
         if (
@@ -80,11 +80,13 @@
 
     let currentZoneCode = null;
     let pkScript = null;
+    let latestPosition = null;
 
     function updatePosition(lat, lon) {
       const zoneCode = getCurrentZone(lat, lon);
       if (!zoneCode) {
-        document.getElementById("pk").textContent = "Zone inconnue";
+        document.getElementById("pk-value").textContent = "--.--";
+        document.getElementById("pk-label").textContent = "Hors zone";
         return;
       }
 
@@ -95,14 +97,22 @@
         pkScript = document.createElement("script");
         pkScript.src = `pks_${zoneCode}.js`;
         pkScript.onload = () => {
-          const nearest = findNearestPK(lat, lon);
-          document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
+          showPK(lat, lon);
         };
         document.head.appendChild(pkScript);
       } else if (typeof pkData !== "undefined") {
-        const nearest = findNearestPK(lat, lon);
-        document.getElementById("pk").textContent = `PK approx : ${nearest.pk.toFixed(2)}`;
+        showPK(lat, lon);
       }
+    }
+
+    function showPK(lat, lon) {
+      const pkElement = document.getElementById("pk-value");
+      pkElement.style.opacity = 0;
+      setTimeout(() => {
+        const nearest = findNearestPK(lat, lon);
+        pkElement.textContent = nearest.pk.toFixed(2);
+        pkElement.style.opacity = 1;
+      }, 150);
     }
 
     function findNearestPK(lat, lon) {
@@ -127,6 +137,8 @@
       navigator.geolocation.watchPosition(
         pos => {
           const { latitude, longitude, speed } = pos.coords;
+          latestPosition = { lat: latitude, lon: longitude };
+
           document.getElementById("coords").textContent =
             `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 
@@ -144,6 +156,12 @@
         },
         { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
       );
+    }
+
+    function forceRefresh() {
+      if (latestPosition) {
+        updatePosition(latestPosition.lat, latestPosition.lon);
+      }
     }
 
     window.onload = init;

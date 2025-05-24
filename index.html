@@ -7,23 +7,23 @@
   <style>
     :root {
       --sncf-blue: #003399;
+      --sncf-orange: #ff6600;
       --bg-light: #f4f4f4;
       --bg-dark: #121212;
       --text-light: #ffffff;
       --text-dark: #111111;
-      --accent: #3e8ed0;
     }
 
     body {
       margin: 0;
-      font-family: "Roboto", sans-serif;
+      font-family: "Segoe UI", "Roboto", sans-serif;
       background-color: var(--bg-light);
       color: var(--text-dark);
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 1em;
-      transition: all 0.3s ease;
+      transition: background-color 0.3s, color 0.3s;
     }
 
     header {
@@ -32,24 +32,30 @@
       color: white;
       text-align: center;
       padding: 1em 0;
-      font-size: 1.5em;
+      font-size: 1.6em;
       font-weight: bold;
     }
 
     .main-info {
-      margin-top: 2em;
       text-align: center;
+      margin-top: 2em;
     }
 
     #pk {
-      font-size: 3.2em;
+      font-size: 3.5em;
       font-weight: bold;
-      margin-bottom: 0.2em;
+      margin-bottom: 0.3em;
     }
 
-    #coords, #speed {
-      font-size: 1.2em;
-      margin: 0.3em 0;
+    #pk-label {
+      font-size: 0.95em;
+      color: var(--sncf-orange);
+      margin-bottom: 1em;
+    }
+
+    #speed {
+      font-size: 1.4em;
+      margin-top: 1em;
     }
 
     .controls {
@@ -62,7 +68,7 @@
 
     button {
       font-size: 1em;
-      padding: 0.7em 1.2em;
+      padding: 0.7em 1.4em;
       min-width: 48px;
       min-height: 48px;
       border: none;
@@ -70,7 +76,7 @@
       background-color: var(--sncf-blue);
       color: white;
       cursor: pointer;
-      transition: background-color 0.3s ease;
+      transition: background-color 0.3s;
     }
 
     button:hover {
@@ -94,13 +100,17 @@
       color: #66aaff;
     }
 
+    body.dark #pk-label {
+      color: #ffaa66;
+    }
+
     @media (max-width: 480px) {
       #pk {
-        font-size: 2.5em;
+        font-size: 2.6em;
       }
       .controls {
         flex-direction: column;
-        gap: 0.7em;
+        gap: 0.8em;
       }
     }
   </style>
@@ -109,11 +119,11 @@
   <header>MON PK</header>
   <div class="main-info">
     <div id="pk">PK : ...</div>
-    <div id="coords">Position : ...</div>
+    <div id="pk-label">PK approximatif – non garanti</div>
     <div id="speed">Vitesse : ...</div>
   </div>
   <div class="controls">
-    <button onclick="refreshPosition()">Actualiser position</button>
+    <button onclick="refreshPosition()">Actualiser</button>
     <button onclick="toggleDarkMode()">Mode jour/nuit</button>
   </div>
 
@@ -148,8 +158,6 @@
     }
 
     function updatePosition(lat, lon, speed) {
-      document.getElementById("coords").textContent =
-        `Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
       if (speed !== null) {
         const vitesse = (speed * 3.6).toFixed(1);
         document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
@@ -159,7 +167,7 @@
 
       const zoneCode = getCurrentZone(lat, lon);
       if (!zoneCode) {
-        document.getElementById("pk").textContent = "Hors zone";
+        document.getElementById("pk").textContent = "PK : Hors zone";
         return;
       }
 
@@ -201,7 +209,6 @@
       document.body.classList.toggle("dark");
     }
 
-    // Suivi automatique
     navigator.geolocation.watchPosition(
       pos => {
         const { latitude, longitude, speed } = pos.coords;

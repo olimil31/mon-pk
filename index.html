@@ -2,90 +2,126 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Localisation PK</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    :root {
+      --sncf-blue: #003399;
+      --bg-light: #f4f4f4;
+      --bg-dark: #121212;
+      --text-light: #ffffff;
+      --text-dark: #111111;
+      --accent: #3e8ed0;
+    }
+
     body {
       margin: 0;
-      font-family: sans-serif;
+      font-family: "Roboto", sans-serif;
+      background-color: var(--bg-light);
+      color: var(--text-dark);
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-color: #000;
-      color: #fff;
-      transition: background-color 0.3s, color 0.3s;
+      padding: 1em;
+      transition: all 0.3s ease;
     }
 
-    #container {
+    header {
+      width: 100%;
+      background-color: var(--sncf-blue);
+      color: white;
       text-align: center;
-      max-width: 90vw;
+      padding: 1em 0;
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+
+    .main-info {
+      margin-top: 2em;
+      text-align: center;
+    }
+
+    #pk {
+      font-size: 3.2em;
+      font-weight: bold;
+      margin-bottom: 0.2em;
     }
 
     #coords, #speed {
       font-size: 1.2em;
-      margin: 5px 0;
-    }
-
-    #pk-label {
-      font-size: 1em;
-      color: #aaa;
-    }
-
-    #pk-value {
-      font-family: monospace;
-      font-size: 4em;
-      font-weight: bold;
-      color: #0f0;
       margin: 0.3em 0;
     }
 
+    .controls {
+      margin-top: 2em;
+      display: flex;
+      gap: 1em;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
     button {
-      margin-top: 15px;
-      padding: 10px 20px;
       font-size: 1em;
-      background-color: #333;
-      color: #fff;
+      padding: 0.7em 1.2em;
+      min-width: 48px;
+      min-height: 48px;
       border: none;
       border-radius: 8px;
+      background-color: var(--sncf-blue);
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
     }
 
     button:hover {
-      background-color: #555;
+      background-color: #002277;
     }
 
-    .light-mode {
-      background-color: #fff;
-      color: #000;
+    body.dark {
+      background-color: var(--bg-dark);
+      color: var(--text-light);
     }
 
-    .light-mode #pk-value {
-      color: #090;
+    body.dark header {
+      background-color: #1a1a1a;
     }
 
-    .light-mode button {
-      background-color: #ddd;
-      color: #000;
+    body.dark button {
+      background-color: #444;
     }
 
-    .light-mode button:hover {
-      background-color: #bbb;
+    body.dark #speed {
+      color: #66aaff;
+    }
+
+    @media (max-width: 480px) {
+      #pk {
+        font-size: 2.5em;
+      }
+      .controls {
+        flex-direction: column;
+        gap: 0.7em;
+      }
     }
   </style>
-  <script src="zones.js"></script>
 </head>
 <body>
-  <div id="container">
-    <p id="coords">Position : </p>
-    <p id="speed">Vitesse : </p>
-    <p id="pk-label">PK approx :</p>
-    <p id="pk-value">--.--</p>
-    <button onclick="forceRefresh()">Rafraîchir la position</button>
-    <button onclick="toggleMode()">Basculer mode Jour/Nuit</button>
+  <header>MON PK</header>
+  <div class="main-info">
+    <div id="pk">PK : ...</div>
+    <div id="coords">Position : ...</div>
+    <div id="speed">Vitesse : ...</div>
+  </div>
+  <div class="controls">
+    <button onclick="refreshPosition()">Actualiser position</button>
+    <button onclick="toggleDarkMode()">Mode jour/nuit</button>
   </div>
 
+  <script src="zones.js"></script>
   <script>
+    let currentZoneCode = null;
+    let pkScript = null;
+
     function getCurrentZone(lat, lon) {
       for (const zone of zones) {
         if (
@@ -96,39 +132,6 @@
         }
       }
       return null;
-    }
-
-    let currentZoneCode = null;
-    let pkScript = null;
-    let latestPosition = null;
-
-    function updatePosition(lat, lon) {
-      const zoneCode = getCurrentZone(lat, lon);
-      if (!zoneCode) {
-        document.getElementById("pk-value").textContent = "--.--";
-        document.getElementById("pk-label").textContent = "Hors zone";
-        return;
-      }
-
-      if (zoneCode !== currentZoneCode) {
-        currentZoneCode = zoneCode;
-        if (pkScript) pkScript.remove();
-
-        pkScript = document.createElement("script");
-        pkScript.src = `pks_${zoneCode}.js`;
-        pkScript.onload = () => {
-          showPK(lat, lon);
-        };
-        document.head.appendChild(pkScript);
-      } else if (typeof pkData !== "undefined") {
-        showPK(lat, lon);
-      }
-    }
-
-    function showPK(lat, lon) {
-      const nearest = findNearestPK(lat, lon);
-      document.getElementById("pk-value").textContent = nearest.pk.toFixed(2);
-      document.getElementById("pk-label").textContent = "PK approx :";
     }
 
     function findNearestPK(lat, lon) {
@@ -144,47 +147,71 @@
       return nearest;
     }
 
-    function init() {
-      if (!navigator.geolocation) {
-        document.getElementById("coords").textContent = "Géolocalisation non supportée";
+    function updatePosition(lat, lon, speed) {
+      document.getElementById("coords").textContent =
+        `Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      if (speed !== null) {
+        const vitesse = (speed * 3.6).toFixed(1);
+        document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
+      } else {
+        document.getElementById("speed").textContent = `Vitesse : inconnue`;
+      }
+
+      const zoneCode = getCurrentZone(lat, lon);
+      if (!zoneCode) {
+        document.getElementById("pk").textContent = "Hors zone";
         return;
       }
 
-      navigator.geolocation.watchPosition(
-        pos => {
-          const { latitude, longitude, speed } = pos.coords;
-          latestPosition = { lat: latitude, lon: longitude };
+      if (zoneCode !== currentZoneCode) {
+        currentZoneCode = zoneCode;
+        if (pkScript) pkScript.remove();
 
-          document.getElementById("coords").textContent =
-            `Position : ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-
-          if (speed !== null) {
-            const vitesse = (speed * 3.6).toFixed(1);
-            document.getElementById("speed").textContent = `Vitesse : ${vitesse} km/h`;
-          } else {
-            document.getElementById("speed").textContent = "Vitesse : inconnue";
-          }
-
-          updatePosition(latitude, longitude);
-        },
-        err => {
-          document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message;
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-      );
-    }
-
-    function forceRefresh() {
-      if (latestPosition) {
-        updatePosition(latestPosition.lat, latestPosition.lon);
+        pkScript = document.createElement("script");
+        pkScript.src = `pks_${zoneCode}.js`;
+        pkScript.onload = () => {
+          const nearest = findNearestPK(lat, lon);
+          document.getElementById("pk").textContent = `PK : ${nearest.pk.toFixed(2)}`;
+        };
+        document.head.appendChild(pkScript);
+      } else if (typeof pkData !== "undefined") {
+        const nearest = findNearestPK(lat, lon);
+        document.getElementById("pk").textContent = `PK : ${nearest.pk.toFixed(2)}`;
       }
     }
 
-    function toggleMode() {
-      document.body.classList.toggle("light-mode");
+    function refreshPosition() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const { latitude, longitude, speed } = pos.coords;
+            updatePosition(latitude, longitude, speed);
+          },
+          err => {
+            alert("Erreur géolocalisation : " + err.message);
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        alert("Géolocalisation non supportée");
+      }
     }
 
-    window.onload = init;
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+    }
+
+    // Suivi automatique
+    navigator.geolocation.watchPosition(
+      pos => {
+        const { latitude, longitude, speed } = pos.coords;
+        updatePosition(latitude, longitude, speed);
+      },
+      err => {
+        console.log("Erreur GPS :", err.message);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
   </script>
 </body>
 </html>

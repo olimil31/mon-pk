@@ -8,6 +8,7 @@
     :root {
       --sncf-blue: #003399;
       --sncf-orange: #ff6600;
+      --pk-night: #00FF66;
       --bg-light: #f4f4f4;
       --bg-dark: #121212;
       --text-light: #ffffff;
@@ -36,21 +37,41 @@
       font-weight: bold;
     }
 
+    .container {
+      background: white;
+      border: 4px solid var(--sncf-blue);
+      border-radius: 20px;
+      padding: 2em 1em;
+      margin-top: 1.5em;
+      width: 95%;
+      max-width: 600px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    body.dark .container {
+      background: #1e1e1e;
+      border-color: #00FF66;
+    }
+
     .main-info {
       text-align: center;
-      margin-top: 2em;
     }
 
     #pk {
-      font-size: 3.5em;
+      font-size: 5em;
       font-weight: bold;
-      margin-bottom: 0.3em;
+      margin: 0.1em 0;
+    }
+
+    body.dark #pk {
+      color: var(--pk-night);
     }
 
     #pk-label {
-      font-size: 0.95em;
+      font-size: 0.9em;
       color: var(--sncf-orange);
-      margin-bottom: 1em;
+      margin-bottom: 1.2em;
     }
 
     #speed {
@@ -106,7 +127,7 @@
 
     @media (max-width: 480px) {
       #pk {
-        font-size: 2.6em;
+        font-size: 4em;
       }
       .controls {
         flex-direction: column;
@@ -117,14 +138,18 @@
 </head>
 <body>
   <header>MON PK</header>
-  <div class="main-info">
-    <div id="pk">PK : ...</div>
-    <div id="pk-label">PK approximatif – non garanti</div>
-    <div id="speed">Vitesse : ...</div>
-  </div>
-  <div class="controls">
-    <button onclick="refreshPosition()">Actualiser</button>
-    <button onclick="toggleDarkMode()">Mode jour/nuit</button>
+
+  <div class="container">
+    <div class="main-info">
+      <div id="pk">PK : ...</div>
+      <div id="pk-label">PK approximatif – non garanti</div>
+      <div id="speed">Vitesse : ...</div>
+    </div>
+
+    <div class="controls">
+      <button onclick="refreshPosition()">Actualiser</button>
+      <button onclick="toggleDarkMode()">Mode jour/nuit</button>
+    </div>
   </div>
 
   <script src="zones.js"></script>

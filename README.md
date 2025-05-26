@@ -7,7 +7,7 @@ PK donné a titre indicatif, les données ne sont pas garanties.
 
 Données utilisées
 
-Ce projet utilise des données issues d’un travail de Nicolas Wurtz, publiées sous la licence Open Database License (ODbL) v1.0.
+Ce projet utilise des [données de Nicolas Wurtz](https://github.com/nicolaswurtz), publiées sous la licence [ODbL v1.0](https://opendatacommons.org/licenses/odbl/1.0/).
 
 Vous êtes libres de :
 

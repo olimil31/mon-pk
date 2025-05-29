@@ -2,9 +2,10 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>PK SNCF</title>
+  <title>Mon PK</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    /* ===== VARIABLES CSS ===== */
     :root {
       --sncf-blue: #003399;
       --sncf-grey: #2c2c2c;
@@ -13,50 +14,65 @@
       --text-light: #000000;
       --text-dark: #ffffff;
       --green-fluo: #00ff00;
+      --shadow-light: rgba(0, 51, 153, 0.1);
+      --shadow-dark: rgba(255, 255, 255, 0.1);
     }
 
+    /* ===== LAYOUT GÉNÉRAL ===== */
     body {
       font-family: "Segoe UI", sans-serif;
       margin: 0;
-      padding: 1rem;
+      padding: 0.5rem;
       background-color: var(--bg-light);
       color: var(--text-light);
       display: flex;
       flex-direction: column;
       align-items: center;
+      min-height: 100vh;
     }
 
     .container {
       border: 3px solid var(--sncf-blue);
       border-radius: 15px;
-      padding: 1rem;
+      padding: 1.5rem;
       max-width: 400px;
-      width: 100%;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: calc(100% - 1rem);
+      box-shadow: 0 4px 20px var(--shadow-light);
+      margin: 0 0.5rem;
     }
 
+    /* ===== COMPOSANTS PK ===== */
     h1 {
       margin-top: 0;
       text-align: center;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
     }
 
     #pk-value {
-      font-size: 3rem;
+      font-size: 4rem;
       font-weight: bold;
       margin: 1rem 0 0.2rem;
+      text-align: center;
+      line-height: 1;
+      transition: all 0.3s ease;
     }
 
     #pk-label {
       font-size: 0.9rem;
       opacity: 0.7;
       margin-bottom: 1rem;
+      text-align: center;
     }
 
     #speed {
       font-size: 1.2rem;
       color: var(--sncf-blue);
+      text-align: center;
+      margin: 0.5rem 0;
     }
 
+    /* ===== INTERFACE ===== */
     #gps-status {
       font-size: 0.9rem;
       margin: 0.5rem 0;
@@ -85,15 +101,28 @@
       background-color: var(--sncf-blue);
       color: white;
       cursor: pointer;
+      transition: transform 0.1s ease;
     }
 
     button:active {
       transform: scale(0.95);
     }
 
+    /* ===== ANIMATIONS ===== */
+    .pk-updating {
+      transform: scale(1.05);
+      color: var(--sncf-blue) !important;
+    }
+
+    /* ===== THÈMES ===== */
     .night {
       background-color: var(--bg-dark);
       color: var(--text-dark);
+    }
+
+    .night .container {
+      box-shadow: 0 4px 20px var(--shadow-dark);
+      border-color: #4a90e2;
     }
 
     .night #pk-value {
@@ -109,12 +138,56 @@
       color: white;
       border: 1px solid #777;
     }
+
+    /* ===== RESPONSIVE MOBILE ===== */
+    @media (max-width: 480px) {
+      body {
+        padding: 0.25rem;
+      }
+      
+      .container {
+        padding: 1rem;
+        width: calc(100% - 0.5rem);
+        margin: 0 0.25rem;
+        border-width: 2px;
+      }
+      
+      #pk-value {
+        font-size: 5rem;
+      }
+      
+      h1 {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+      }
+      
+      button {
+        font-size: 0.9rem;
+        padding: 15px 10px;
+        min-height: 65px;
+      }
+    }
+
+    /* ===== MODE PAYSAGE MOBILE ===== */
+    @media (max-height: 600px) and (orientation: landscape) {
+      #pk-value {
+        font-size: 3.5rem;
+      }
+      
+      .container {
+        padding: 0.75rem;
+      }
+      
+      h1 {
+        margin-bottom: 0.5rem;
+      }
+    }
   </style>
   <script src="zones.js"></script>
 </head>
 <body>
   <div class="container" id="main">
-    <h1>PK SNCF</h1>
+    <h1>Mon PK</h1>
     <div id="pk-value">--</div>
     <div id="pk-label">PK approx. non garanti</div>
     <div id="speed">Vitesse : --</div>
@@ -175,7 +248,7 @@
         console.log("GPS timeout - relance");
         updateGPSStatus('lost', '🟠 GPS perdu - reconnexion...');
         startWatch();
-      }, 30000); // 30 secondes sans mise à jour
+      }, 30000);
     }
 
     function updateDisplay(lat, lon) {
@@ -186,7 +259,6 @@
         return;
       }
 
-      // Détecte si on revient de veille (plus de 60 secondes sans update)
       const timeSinceLastUpdate = Date.now() - lastGPSUpdate;
       const forceReload = timeSinceLastUpdate > 60000;
 
@@ -194,17 +266,19 @@
         currentZoneCode = zoneCode;
         if (pkScript) {
           pkScript.remove();
-          window.pkData = undefined; // Libère la mémoire
+          window.pkData = undefined;
         }
 
-        // Force le rechargement en ajoutant un timestamp
         pkScript = document.createElement("script");
         pkScript.src = `pks_${zoneCode}.js?t=${Date.now()}`;
         pkScript.onload = () => {
           const nearest = findNearestPK(lat, lon);
           if (nearest) {
             lastKnownPK = nearest.pk.toFixed(2);
-            document.getElementById("pk-value").textContent = lastKnownPK;
+            const pkElement = document.getElementById("pk-value");
+            pkElement.classList.add("pk-updating");
+            pkElement.textContent = lastKnownPK;
+            setTimeout(() => pkElement.classList.remove("pk-updating"), 300);
           }
         };
         pkScript.onerror = () => {
@@ -222,7 +296,6 @@
     }
 
     function forceRefresh() {
-      // Invalide le cache des scripts
       currentZoneCode = null;
       lastKnownPK = "--";
       updateGPSStatus('error', '🔄 Actualisation...');
@@ -265,7 +338,6 @@
         return;
       }
 
-      // Arrête le watch précédent s'il existe
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
@@ -284,7 +356,6 @@
           document.getElementById("pk-value").textContent = lastKnownPK || "Erreur GPS";
           updateGPSStatus('error', '🔴 Erreur GPS');
           
-          // Relance après erreur
           setTimeout(() => {
             if (document.visibilityState === 'visible') {
               startWatch();
@@ -295,7 +366,6 @@
       );
     }
 
-    // Détecte le réveil de l'application
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         console.log("Application redevient active");
@@ -303,7 +373,6 @@
       }
     });
 
-    // Détecte le réveil du système
     let lastTime = Date.now();
     setInterval(() => {
       const currentTime = Date.now();
@@ -316,7 +385,6 @@
       lastTime = currentTime;
     }, 1000);
 
-    // Vérification des permissions géolocalisation
     if (navigator.permissions) {
       navigator.permissions.query({name: 'geolocation'}).then(result => {
         if (result.state === 'denied') {

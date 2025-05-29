@@ -57,6 +57,16 @@
       color: var(--sncf-blue);
     }
 
+    #gps-status {
+      font-size: 0.9rem;
+      margin: 0.5rem 0;
+      text-align: center;
+    }
+
+    .gps-ok { color: green; }
+    .gps-error { color: red; }
+    .gps-lost { color: orange; }
+
     .buttons {
       display: flex;
       justify-content: space-between;
@@ -68,12 +78,17 @@
       padding: 12px;
       flex: 1;
       margin: 0 0.25rem;
-      min-width: 48px;
-      min-height: 48px;
+      min-width: 60px;
+      min-height: 60px;
       border: none;
       border-radius: 8px;
       background-color: var(--sncf-blue);
       color: white;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: scale(0.95);
     }
 
     .night {
@@ -90,8 +105,9 @@
     }
 
     .night button {
-      background-color: #444;
+      background-color: #555;
       color: white;
+      border: 1px solid #777;
     }
   </style>
   <script src="zones.js"></script>
@@ -102,6 +118,7 @@
     <div id="pk-value">--</div>
     <div id="pk-label">PK approx. non garanti</div>
     <div id="speed">Vitesse : --</div>
+    <div id="gps-status" class="gps-error">🔴 GPS déconnecté</div>
     <div class="buttons">
       <button onclick="forceRefresh()">Actualiser</button>
       <button onclick="toggleTheme()">🌙/☀️</button>
@@ -113,6 +130,9 @@
     let pkScript = null;
     let lastKnownPK = "--";
     let nightMode = false;
+    let gpsTimeout;
+    let lastGPSUpdate = Date.now();
+    let watchId = null;
 
     function getCurrentZone(lat, lon) {
       for (const zone of zones) {
@@ -125,7 +145,9 @@
     }
 
     function findNearestPK(lat, lon) {
-      if (typeof pkData === "undefined") return null;
+      if (typeof pkData === "undefined" || !Array.isArray(pkData)) return null;
+      if (!lat || !lon || isNaN(lat) || isNaN(lon)) return null;
+      
       let minDist = Infinity;
       let nearest = null;
       for (const point of pkData) {
@@ -138,25 +160,56 @@
       return nearest;
     }
 
+    function updateGPSStatus(status, message) {
+      const statusElement = document.getElementById("gps-status");
+      statusElement.className = `gps-${status}`;
+      statusElement.textContent = message;
+    }
+
+    function resetGPSTimeout() {
+      clearTimeout(gpsTimeout);
+      lastGPSUpdate = Date.now();
+      updateGPSStatus('ok', '🟢 GPS connecté');
+      
+      gpsTimeout = setTimeout(() => {
+        console.log("GPS timeout - relance");
+        updateGPSStatus('lost', '🟠 GPS perdu - reconnexion...');
+        startWatch();
+      }, 30000); // 30 secondes sans mise à jour
+    }
+
     function updateDisplay(lat, lon) {
       const zoneCode = getCurrentZone(lat, lon);
       if (!zoneCode) {
         document.getElementById("pk-value").textContent = "--";
+        updateGPSStatus('error', '🔴 Zone inconnue');
         return;
       }
 
-      if (zoneCode !== currentZoneCode) {
-        currentZoneCode = zoneCode;
-        if (pkScript) pkScript.remove();
+      // Détecte si on revient de veille (plus de 60 secondes sans update)
+      const timeSinceLastUpdate = Date.now() - lastGPSUpdate;
+      const forceReload = timeSinceLastUpdate > 60000;
 
+      if (zoneCode !== currentZoneCode || forceReload) {
+        currentZoneCode = zoneCode;
+        if (pkScript) {
+          pkScript.remove();
+          window.pkData = undefined; // Libère la mémoire
+        }
+
+        // Force le rechargement en ajoutant un timestamp
         pkScript = document.createElement("script");
-        pkScript.src = `pks_${zoneCode}.js`;
+        pkScript.src = `pks_${zoneCode}.js?t=${Date.now()}`;
         pkScript.onload = () => {
           const nearest = findNearestPK(lat, lon);
           if (nearest) {
             lastKnownPK = nearest.pk.toFixed(2);
             document.getElementById("pk-value").textContent = lastKnownPK;
           }
+        };
+        pkScript.onerror = () => {
+          document.getElementById("pk-value").textContent = "Zone inconnue";
+          updateGPSStatus('error', '🔴 Erreur chargement zone');
         };
         document.head.appendChild(pkScript);
       } else {
@@ -169,21 +222,29 @@
     }
 
     function forceRefresh() {
+      // Invalide le cache des scripts
+      currentZoneCode = null;
+      lastKnownPK = "--";
+      updateGPSStatus('error', '🔄 Actualisation...');
+      
       navigator.geolocation.getCurrentPosition(
         pos => {
           const { latitude, longitude, speed } = pos.coords;
           updateDisplay(latitude, longitude);
           updateSpeed(speed);
+          resetGPSTimeout();
         },
         err => {
-          // En cas d'erreur on conserve le dernier PK
+          console.error("Erreur lors du refresh:", err);
+          document.getElementById("pk-value").textContent = "Erreur GPS";
+          updateGPSStatus('error', '🔴 Erreur GPS');
         },
-        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
 
     function updateSpeed(speed) {
-      if (speed !== null) {
+      if (speed !== null && speed >= 0) {
         const v = (speed * 3.6).toFixed(1);
         document.getElementById("speed").textContent = `Vitesse : ${v} km/h`;
       } else {
@@ -194,26 +255,75 @@
     function toggleTheme() {
       nightMode = !nightMode;
       document.body.classList.toggle("night", nightMode);
+      localStorage.setItem("nightMode", nightMode ? "1" : "0");
     }
 
     function startWatch() {
       if (!navigator.geolocation) {
         alert("Géolocalisation non supportée.");
+        updateGPSStatus('error', '🔴 GPS non supporté');
         return;
       }
 
-      navigator.geolocation.watchPosition(
+      // Arrête le watch précédent s'il existe
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      updateGPSStatus('error', '🔄 Connexion GPS...');
+
+      watchId = navigator.geolocation.watchPosition(
         pos => {
           const { latitude, longitude, speed } = pos.coords;
           updateDisplay(latitude, longitude);
           updateSpeed(speed);
+          resetGPSTimeout();
         },
         err => {
-          // Ignore et affiche le dernier PK
-          document.getElementById("pk-value").textContent = lastKnownPK;
+          console.error("Erreur GPS:", err);
+          document.getElementById("pk-value").textContent = lastKnownPK || "Erreur GPS";
+          updateGPSStatus('error', '🔴 Erreur GPS');
+          
+          // Relance après erreur
+          setTimeout(() => {
+            if (document.visibilityState === 'visible') {
+              startWatch();
+            }
+          }, 5000);
         },
         { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
       );
+    }
+
+    // Détecte le réveil de l'application
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        console.log("Application redevient active");
+        forceRefresh();
+      }
+    });
+
+    // Détecte le réveil du système
+    let lastTime = Date.now();
+    setInterval(() => {
+      const currentTime = Date.now();
+      if (currentTime > lastTime + 2000) {
+        console.log("Réveil détecté");
+        if (document.visibilityState === 'visible') {
+          forceRefresh();
+        }
+      }
+      lastTime = currentTime;
+    }, 1000);
+
+    // Vérification des permissions géolocalisation
+    if (navigator.permissions) {
+      navigator.permissions.query({name: 'geolocation'}).then(result => {
+        if (result.state === 'denied') {
+          alert('Géolocalisation refusée. Activez-la dans les paramètres.');
+          updateGPSStatus('error', '🔴 GPS refusé');
+        }
+      });
     }
 
     window.onload = () => {

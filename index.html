@@ -22,7 +22,7 @@
     body {
       font-family: "Segoe UI", sans-serif;
       margin: 0;
-      padding: 0.5rem;
+      padding: 1rem;
       background-color: var(--bg-light);
       color: var(--text-light);
       display: flex;
@@ -36,9 +36,9 @@
       border-radius: 15px;
       padding: 1.5rem;
       max-width: 400px;
-      width: calc(100% - 1rem);
+      width: calc(100% - 2rem);
       box-shadow: 0 4px 20px var(--shadow-light);
-      margin: 0 0.5rem;
+      margin: 0 1rem;
     }
 
     /* ===== COMPOSANTS PK ===== */
@@ -83,6 +83,13 @@
     .gps-error { color: red; }
     .gps-lost { color: orange; }
 
+    .gps-precision {
+      font-size: 0.8rem;
+      opacity: 0.6;
+      text-align: center;
+      margin-top: 0.2rem;
+    }
+
     .buttons {
       display: flex;
       justify-content: space-between;
@@ -106,6 +113,44 @@
 
     button:active {
       transform: scale(0.95);
+    }
+
+    /* ===== MODE PLEIN ÉCRAN ===== */
+    .pk-fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      border: none;
+      border-radius: 0;
+      padding: 2rem;
+      box-shadow: none;
+    }
+
+    .pk-fullscreen #pk-value {
+      font-size: 8rem;
+      color: var(--green-fluo);
+    }
+
+    .pk-fullscreen h1,
+    .pk-fullscreen #pk-label,
+    .pk-fullscreen #speed,
+    .pk-fullscreen #gps-status,
+    .pk-fullscreen .gps-precision {
+      color: var(--text-dark);
+    }
+
+    .pk-fullscreen .buttons {
+      position: absolute;
+      bottom: 2rem;
+      width: calc(100% - 4rem);
     }
 
     /* ===== ANIMATIONS ===== */
@@ -142,14 +187,14 @@
     /* ===== RESPONSIVE MOBILE ===== */
     @media (max-width: 480px) {
       body {
-        padding: 0.25rem;
+        padding: 0.75rem;
       }
       
       .container {
-        padding: 1rem;
-        width: calc(100% - 0.5rem);
-        margin: 0 0.25rem;
-        border-width: 2px;
+        padding: 1.25rem;
+        width: calc(100% - 1.5rem);
+        margin: 0 0.75rem;
+        border-width: 3px;
       }
       
       #pk-value {
@@ -166,6 +211,10 @@
         padding: 15px 10px;
         min-height: 65px;
       }
+
+      .pk-fullscreen #pk-value {
+        font-size: 6rem;
+      }
     }
 
     /* ===== MODE PAYSAGE MOBILE ===== */
@@ -181,6 +230,10 @@
       h1 {
         margin-bottom: 0.5rem;
       }
+
+      .pk-fullscreen #pk-value {
+        font-size: 5rem;
+      }
     }
   </style>
   <script src="zones.js"></script>
@@ -192,8 +245,10 @@
     <div id="pk-label">PK approx. non garanti</div>
     <div id="speed">Vitesse : --</div>
     <div id="gps-status" class="gps-error">🔴 GPS déconnecté</div>
+    <div id="gps-precision" class="gps-precision"></div>
     <div class="buttons">
       <button onclick="forceRefresh()">Actualiser</button>
+      <button onclick="toggleFullscreen()">📱</button>
       <button onclick="toggleTheme()">🌙/☀️</button>
     </div>
   </div>
@@ -237,6 +292,20 @@
       const statusElement = document.getElementById("gps-status");
       statusElement.className = `gps-${status}`;
       statusElement.textContent = message;
+    }
+
+    function updatePrecision(accuracy) {
+      const precisionElement = document.getElementById('gps-precision');
+      if (accuracy && accuracy > 0) {
+        precisionElement.textContent = `Précision GPS : ${accuracy.toFixed(1)} m`;
+      } else {
+        precisionElement.textContent = "";
+      }
+    }
+
+    function toggleFullscreen() {
+      const container = document.getElementById('main');
+      container.classList.toggle('pk-fullscreen');
     }
 
     function resetGPSTimeout() {
@@ -302,9 +371,10 @@
       
       navigator.geolocation.getCurrentPosition(
         pos => {
-          const { latitude, longitude, speed } = pos.coords;
+          const { latitude, longitude, speed, accuracy } = pos.coords;
           updateDisplay(latitude, longitude);
           updateSpeed(speed);
+          updatePrecision(accuracy);
           resetGPSTimeout();
         },
         err => {
@@ -346,9 +416,10 @@
 
       watchId = navigator.geolocation.watchPosition(
         pos => {
-          const { latitude, longitude, speed } = pos.coords;
+          const { latitude, longitude, speed, accuracy } = pos.coords;
           updateDisplay(latitude, longitude);
           updateSpeed(speed);
+          updatePrecision(accuracy);
           resetGPSTimeout();
         },
         err => {

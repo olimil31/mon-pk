@@ -1,225 +1,149 @@
-<!DOCTYPE html>
-<html lang="fr">
+<!DOCTYPE html><html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>PK SNCF</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    :root {
-      --sncf-blue: #003399;
-      --sncf-grey: #2c2c2c;
-      --bg-light: #ffffff;
-      --bg-dark: #121212;
-      --text-light: #000000;
-      --text-dark: #ffffff;
-      --green-fluo: #00ff00;
-    }
-
-    body {
-      font-family: "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 1rem;
-      background-color: var(--bg-light);
-      color: var(--text-light);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .container {
-      border: 3px solid var(--sncf-blue);
-      border-radius: 15px;
-      padding: 1rem;
-      max-width: 400px;
-      width: 100%;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-      margin-top: 0;
-      text-align: center;
-    }
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Localisation PK - Mobile Friendly</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+  body {
+    margin: 0; padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background-color: #121212;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    background-color: #003399;
+    color: white;
+    padding: 12px 20px;
+    font-weight: 700;
+    font-size: 1.6rem;
+    text-align: center;
+    user-select: none;
+  }
+  main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 0 15px;
+    text-align: center;
+  }
+  #pk-value {
+    font-size: 7rem;
+    font-weight: 900;
+    color: #99ff99;
+    user-select: none;
+    margin-bottom: 0.3em;
+    line-height: 1;
+  }
+  #pk-label {
+    font-size: 1.2rem;
+    opacity: 0.7;
+    margin-bottom: 1.5rem;
+    user-select: none;
+  }
+  #coords, #speed {
+    font-size: 1.1rem;
+    margin: 6px 0;
+    user-select: none;
+  }
+  footer {
+    padding: 10px 20px;
+    background-color: #222;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  button {
+    background-color: #003399;
+    border: none;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 14px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    min-width: 48px;
+    min-height: 48px;
+    flex-grow: 1;
+    max-width: 200px;
+    display: inline-block;
+  }
+  button:hover {
+    background-color: #0055cc;
+  }
+  body.light-mode {
+    background-color: #f0f4ff;
+    color: #222;
+  }
+  body.light-mode header {
+    background-color: #99bbff;
+    color: #111;
+  }
+  body.light-mode footer {
+    background-color: #c0d4ff;
+  }
+  body.light-mode button {
+    background-color: #003399;
+    color: white;
+  }
+  body.light-mode #pk-value {
+    color: #003399;
+  }
+  @media (max-width: 480px) {
     #pk-value {
-      font-size: 3rem;
-      font-weight: bold;
-      margin: 1rem 0 0.2rem;
+      font-size: 5rem;
     }
-
-    #pk-label {
-      font-size: 0.9rem;
-      opacity: 0.7;
-      margin-bottom: 1rem;
-    }
-
-    #speed {
-      font-size: 1.2rem;
-      color: var(--sncf-blue);
-    }
-
-    .buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 1rem;
-    }
-
     button {
+      max-width: 100%;
+      padding: 12px 0;
       font-size: 1rem;
-      padding: 12px;
-      flex: 1;
-      margin: 0 0.25rem;
-      min-width: 48px;
-      min-height: 48px;
-      border: none;
-      border-radius: 8px;
-      background-color: var(--sncf-blue);
-      color: white;
     }
-
-    .night {
-      background-color: var(--bg-dark);
-      color: var(--text-dark);
-    }
-
-    .night #pk-value {
-      color: var(--green-fluo);
-    }
-
-    .night #speed {
-      color: #66ccff;
-    }
-
-    .night button {
-      background-color: #444;
-      color: white;
-    }
-  </style>
-  <script src="zones.js"></script>
+  }
+</style>
 </head>
 <body>
-  <div class="container" id="main">
-    <h1>PK SNCF</h1>
-    <div id="pk-value">--</div>
-    <div id="pk-label">PK approx. non garanti</div>
-    <div id="speed">Vitesse : --</div>
-    <div class="buttons">
-      <button onclick="forceRefresh()">Actualiser</button>
-      <button onclick="toggleTheme()">🌙/☀️</button>
-    </div>
-  </div>
+  <header>Localisation PK SNCF</header>
+  <main>
+    <div id="pk-value">--.--</div>
+    <div id="pk-label">PK approximatif</div>
+    <div id="coords">Position : --</div>
+    <div id="speed">Vitesse : inconnue</div>
+  </main>
+  <footer>
+    <button id="refresh">🔄 Position</button>
+    <button id="modeToggle">🌙 Jour/Nuit</button>
+  </footer>
+<script src="zones.js"></script>
+<script>
+let currentZoneCode = null;
+let pkScript = null;
+let latestPosition = null;function getCurrentZone(lat, lon) { for (const zone of zones) { if ( lat >= zone.latMin && lat <= zone.latMax && lon >= zone.lonMin && lon <= zone.lonMax ) { return zone.code_ligne; } } return null; }
 
-  <script>
-    let currentZoneCode = null;
-    let pkScript = null;
-    let lastKnownPK = "--";
-    let nightMode = false;
+function updatePosition(lat, lon) { latestPosition = { lat, lon }; const zoneCode = getCurrentZone(lat, lon); if (!zoneCode) { document.getElementById("pk-value").textContent = "--.--"; return; } if (zoneCode !== currentZoneCode) { currentZoneCode = zoneCode; if (pkScript) pkScript.remove(); pkScript = document.createElement("script"); pkScript.src = pks_${zoneCode}.js; pkScript.onload = () => showPK(lat, lon); document.head.appendChild(pkScript); } else if (typeof pkData !== "undefined") { showPK(lat, lon); } }
 
-    function getCurrentZone(lat, lon) {
-      for (const zone of zones) {
-        if (
-          lat >= zone.latMin && lat <= zone.latMax &&
-          lon >= zone.lonMin && lon <= zone.lonMax
-        ) return zone.code_ligne;
-      }
-      return null;
-    }
+function showPK(lat, lon) { if (!pkData) { document.getElementById("pk-value").textContent = "--.--"; return; } const nearest = findNearestPK(lat, lon); document.getElementById("pk-value").textContent = nearest.pk.toFixed(2); }
 
-    function findNearestPK(lat, lon) {
-      if (typeof pkData === "undefined") return null;
-      let minDist = Infinity;
-      let nearest = null;
-      for (const point of pkData) {
-        const d = Math.hypot(point.lat - lat, point.lon - lon);
-        if (d < minDist) {
-          minDist = d;
-          nearest = point;
-        }
-      }
-      return nearest;
-    }
+function findNearestPK(lat, lon) { let minDist = Infinity; let nearest = null; for (const point of pkData) { const d = Math.hypot(point.lat - lat, point.lon - lon); if (d < minDist) { minDist = d; nearest = point; } } return nearest; }
 
-    function updateDisplay(lat, lon) {
-      const zoneCode = getCurrentZone(lat, lon);
-      if (!zoneCode) {
-        document.getElementById("pk-value").textContent = "--";
-        return;
-      }
+function updateSpeed(speed) { const el = document.getElementById("speed"); if (speed !== null && !isNaN(speed)) { const kmh = (speed * 3.6).toFixed(1); el.textContent = Vitesse : ${kmh} km/h; el.style.color = document.body.classList.contains("light-mode") ? "#003399" : "#99ff99"; } else { el.textContent = "Vitesse : inconnue"; el.style.color = ""; } }
 
-      if (zoneCode !== currentZoneCode) {
-        currentZoneCode = zoneCode;
-        if (pkScript) pkScript.remove();
+function updateCoords(lat, lon) { document.getElementById("coords").textContent = Position : ${lat.toFixed(5)}, ${lon.toFixed(5)}; }
 
-        pkScript = document.createElement("script");
-        pkScript.src = `pks_${zoneCode}.js`;
-        pkScript.onload = () => {
-          const nearest = findNearestPK(lat, lon);
-          if (nearest) {
-            lastKnownPK = nearest.pk.toFixed(2);
-            document.getElementById("pk-value").textContent = lastKnownPK;
-          }
-        };
-        document.head.appendChild(pkScript);
-      } else {
-        const nearest = findNearestPK(lat, lon);
-        if (nearest) {
-          lastKnownPK = nearest.pk.toFixed(2);
-          document.getElementById("pk-value").textContent = lastKnownPK;
-        }
-      }
-    }
+function watchPosition() { if (!navigator.geolocation) { document.getElementById("coords").textContent = "Géolocalisation non supportée"; return; } navigator.geolocation.watchPosition( pos => { const { latitude, longitude, speed } = pos.coords; latestPosition = { lat: latitude, lon: longitude }; updateCoords(latitude, longitude); updateSpeed(speed); updatePosition(latitude, longitude); }, err => { document.getElementById("coords").textContent = "Erreur géolocalisation : " + err.message; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 } ); }
 
-    function forceRefresh() {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const { latitude, longitude, speed } = pos.coords;
-          updateDisplay(latitude, longitude);
-          updateSpeed(speed);
-        },
-        err => {
-          // En cas d'erreur on conserve le dernier PK
-        },
-        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
-      );
-    }
+document.getElementById("refresh").addEventListener("click", () => { if (latestPosition) updatePosition(latestPosition.lat, latestPosition.lon); });
 
-    function updateSpeed(speed) {
-      if (speed !== null) {
-        const v = (speed * 3.6).toFixed(1);
-        document.getElementById("speed").textContent = `Vitesse : ${v} km/h`;
-      } else {
-        document.getElementById("speed").textContent = "Vitesse : --";
-      }
-    }
+document.getElementById("modeToggle").addEventListener("click", () => { document.body.classList.toggle("light-mode"); updateSpeed(latestPosition?.speed ?? null); });
 
-    function toggleTheme() {
-      nightMode = !nightMode;
-      document.body.classList.toggle("night", nightMode);
-    }
+window.onload = watchPosition; </script>
 
-    function startWatch() {
-      if (!navigator.geolocation) {
-        alert("Géolocalisation non supportée.");
-        return;
-      }
-
-      navigator.geolocation.watchPosition(
-        pos => {
-          const { latitude, longitude, speed } = pos.coords;
-          updateDisplay(latitude, longitude);
-          updateSpeed(speed);
-        },
-        err => {
-          // Ignore et affiche le dernier PK
-          document.getElementById("pk-value").textContent = lastKnownPK;
-        },
-        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
-      );
-    }
-
-    window.onload = () => {
-      if (localStorage.getItem("nightMode") === "1") toggleTheme();
-      startWatch();
-    };
-  </script>
 </body>
 </html>

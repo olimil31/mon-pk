@@ -19,51 +19,28 @@
     }
 
     /* ===== LAYOUT GÉNÉRAL ===== */
-body {
-  font-family: "Segoe UI", sans-serif;
-  margin: 0;
-  padding: 1rem;
-  background-color: var(--bg-light);
-  color: var(--text-light);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
-  flex-direction: column;
-}
+    body {
+      font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: var(--bg-light);
+      color: var(--text-light);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
 
-.container {
-  border: 3px solid var(--sncf-blue);
-  border-radius: 15px;
-  padding: 1.5rem;
-  width: 90vw;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
-  box-shadow: 0 4px 20px var(--shadow-light);
-}
-
-/* ===== RESPONSIVE TABLETTE ===== */
-@media (min-width: 768px) {
-  body {
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .container {
-    width: 60vw;
-    max-width: 500px;
-  }
-}
-
-/* ===== RESPONSIVE DESKTOP ===== */
-@media (min-width: 1024px) {
-  .container {
-    width: 40vw;
-    max-width: 600px;
-  }
-}
-
+    .container {
+      border: 3px solid var(--sncf-blue);
+      border-radius: 15px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 20px var(--shadow-light);
+      box-sizing: border-box;
+    }
 
     /* ===== COMPOSANTS PK ===== */
     h1 {
@@ -141,26 +118,28 @@ body {
 
     /* ===== MODE PLEIN ÉCRAN ===== */
     .pk-fullscreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: var(--bg-dark);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      border: none;
-      border-radius: 0;
-      padding: 2rem;
-      box-shadow: none;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 1000 !important;
+      border: none !important;
+      border-radius: 0 !important;
+      padding: 2rem !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+      /* Mode nuit par défaut */
+      background: var(--bg-dark) !important;
     }
 
     .pk-fullscreen #pk-value {
-      font-size: 8rem;
-      color: var(--green-fluo);
+      font-size: 8rem !important;
+      color: var(--green-fluo) !important;
     }
 
     .pk-fullscreen h1,
@@ -168,13 +147,33 @@ body {
     .pk-fullscreen #speed,
     .pk-fullscreen #gps-status,
     .pk-fullscreen .gps-precision {
-      color: var(--text-dark);
+      color: var(--text-dark) !important;
+    }
+
+    /* Mode jour en plein écran - avec !important pour forcer */
+    body:not(.night) .pk-fullscreen {
+      background: var(--bg-light) !important;
+    }
+
+    body:not(.night) .pk-fullscreen #pk-value {
+      color: var(--sncf-blue) !important;
+    }
+
+    body:not(.night) .pk-fullscreen h1,
+    body:not(.night) .pk-fullscreen #pk-label,
+    body:not(.night) .pk-fullscreen #speed,
+    body:not(.night) .pk-fullscreen #gps-status,
+    body:not(.night) .pk-fullscreen .gps-precision {
+      color: var(--text-light) !important;
     }
 
     .pk-fullscreen .buttons {
-      position: absolute;
-      bottom: 2rem;
-      width: calc(100% - 4rem);
+      position: absolute !important;
+      bottom: 2rem !important;
+      left: 2rem !important;
+      right: 2rem !important;
+      width: auto !important;
+      transform: none !important;
     }
 
     /* ===== ANIMATIONS ===== */
@@ -211,33 +210,20 @@ body {
     /* ===== RESPONSIVE MOBILE ===== */
     @media (max-width: 480px) {
       body {
-        padding: 0.75rem;
+        padding: 0.5rem;
       }
       
       .container {
+        width: 100%;
         padding: 1.25rem;
-        width: calc(100% - 1.5rem);
-        margin: 0 0.75rem;
-        border-width: 3px;
       }
       
       #pk-value {
         font-size: 5rem;
       }
       
-      h1 {
-        font-size: 1.3rem;
-        margin-bottom: 1rem;
-      }
-      
-      button {
-        font-size: 0.9rem;
-        padding: 15px 10px;
-        min-height: 65px;
-      }
-
       .pk-fullscreen #pk-value {
-        font-size: 6rem;
+        font-size: 6rem !important;
       }
     }
 
@@ -329,7 +315,40 @@ body {
 
     function toggleFullscreen() {
       const container = document.getElementById('main');
-      container.classList.toggle('pk-fullscreen');
+      const isFullscreen = container.classList.contains('pk-fullscreen');
+      
+      if (isFullscreen) {
+        // Sortie du plein écran
+        container.classList.remove('pk-fullscreen');
+        container.style.position = '';
+        container.style.top = '';
+        container.style.left = '';
+        container.style.width = '';
+        container.style.height = '';
+        container.style.margin = '';
+        container.style.maxWidth = '';
+      } else {
+        // Entrée en plein écran
+        container.classList.add('pk-fullscreen');
+        
+        // Force les styles en JavaScript aussi
+        container.style.position = 'fixed';
+        container.style.top = '0';
+        container.style.left = '0';
+        container.style.width = '100vw';
+        container.style.height = '100vh';
+        container.style.margin = '0';
+        container.style.maxWidth = 'none';
+        
+        // Applique la couleur selon le thème
+        if (nightMode) {
+          container.style.background = 'var(--bg-dark)';
+          document.getElementById('pk-value').style.color = 'var(--green-fluo)';
+        } else {
+          container.style.background = 'var(--bg-light)';
+          document.getElementById('pk-value').style.color = 'var(--sncf-blue)';
+        }
+      }
     }
 
     function resetGPSTimeout() {

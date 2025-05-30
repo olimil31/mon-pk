@@ -257,10 +257,12 @@
     <div id="gps-status" class="gps-error">🔴 GPS déconnecté</div>
     <div id="gps-precision" class="gps-precision"></div>
     <div class="buttons">
-      <button onclick="forceRefresh()">Actualiser</button>
-      <button onclick="toggleFullscreen()">📱</button>
-      <button onclick="toggleTheme()">🌙/☀️</button>
-    </div>
+  <button onclick="forceRefresh()">Actualiser</button>
+  <button onclick="toggleFullscreen()">📱</button>
+  <button onclick="toggleTheme()">🌙/☀️</button>
+  <button onclick="debugPK()">🔍</button>
+</div>
+
   </div>
 
   <script>
@@ -512,6 +514,32 @@
       if (localStorage.getItem("nightMode") === "1") toggleTheme();
       startWatch();
     };
+
+
+// FONCTION DEBUG TEMPORAIRE
+function debugPK() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    const zoneCode = getCurrentZone(latitude, longitude);
+    
+    console.log("=== DEBUG PK ===");
+    console.log("Position:", latitude, longitude);
+    console.log("Zone détectée:", zoneCode);
+    console.log("Script chargé:", pkScript ? pkScript.src : "aucun");
+    console.log("Nombre de points PK:", typeof pkData !== "undefined" ? pkData.length : "pkData non défini");
+    
+    if (typeof pkData !== "undefined" && pkData.length > 0) {
+      const nearest = findNearestPK(latitude, longitude);
+      if (nearest) {
+        const distance = Math.hypot(nearest.lat - latitude, nearest.lon - longitude);
+        console.log("PK le plus proche:", nearest.pk);
+        console.log("Distance:", (distance * 111000).toFixed(1), "mètres");
+        console.log("Coordonnées du point PK:", nearest.lat, nearest.lon);
+      }
+    }
+  });
+}
+
   </script>
 </body>
 </html>

@@ -285,20 +285,33 @@
     }
 
     function findNearestPK(lat, lon) {
-      if (typeof pkData === "undefined" || !Array.isArray(pkData)) return null;
-      if (!lat || !lon || isNaN(lat) || isNaN(lon)) return null;
-      
-      let minDist = Infinity;
-      let nearest = null;
-      for (const point of pkData) {
-        const d = Math.hypot(point.lat - lat, point.lon - lon);
-        if (d < minDist) {
-          minDist = d;
-          nearest = point;
-        }
-      }
-      return nearest;
+  if (typeof pkData === "undefined" || !Array.isArray(pkData)) return null;
+  if (!lat || !lon || isNaN(lat) || isNaN(lon)) return null;
+  
+  let minDist = Infinity;
+  let nearest = null;
+  
+  for (const point of pkData) {
+    const d = Math.hypot(point.lat - lat, point.lon - lon);
+    const distanceMeters = d * 111000; // Conversion en mètres
+    
+    // NOUVEAU : Rejette les PK à plus de 1km
+    if (distanceMeters < 1000 && d < minDist) {
+      minDist = d;
+      nearest = point;
     }
+  }
+  
+  // Si aucun point proche trouvé, signaler le problème
+  if (!nearest) {
+    console.warn("Aucun PK trouvé dans un rayon de 1km");
+    updateGPSStatus('error', '🔴 Aucun PK proche');
+    return null;
+  }
+  
+  return nearest;
+}
+
 
     function updateGPSStatus(status, message) {
       const statusElement = document.getElementById("gps-status");

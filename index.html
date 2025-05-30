@@ -522,23 +522,29 @@ function debugPK() {
     const { latitude, longitude } = pos.coords;
     const zoneCode = getCurrentZone(latitude, longitude);
     
-    console.log("=== DEBUG PK ===");
-    console.log("Position:", latitude, longitude);
-    console.log("Zone détectée:", zoneCode);
-    console.log("Script chargé:", pkScript ? pkScript.src : "aucun");
-    console.log("Nombre de points PK:", typeof pkData !== "undefined" ? pkData.length : "pkData non défini");
+    let debugInfo = "=== DEBUG PK ===\n";
+    debugInfo += `Position: ${latitude}, ${longitude}\n`;
+    debugInfo += `Zone détectée: ${zoneCode}\n`;
+    debugInfo += `Script chargé: ${pkScript ? pkScript.src : "aucun"}\n`;
+    debugInfo += `Nombre de points PK: ${typeof pkData !== "undefined" ? pkData.length : "pkData non défini"}\n`;
     
     if (typeof pkData !== "undefined" && pkData.length > 0) {
       const nearest = findNearestPK(latitude, longitude);
       if (nearest) {
         const distance = Math.hypot(nearest.lat - latitude, nearest.lon - longitude);
-        console.log("PK le plus proche:", nearest.pk);
-        console.log("Distance:", (distance * 111000).toFixed(1), "mètres");
-        console.log("Coordonnées du point PK:", nearest.lat, nearest.lon);
+        debugInfo += `PK le plus proche: ${nearest.pk}\n`;
+        debugInfo += `Distance: ${(distance * 111000).toFixed(1)} mètres\n`;
+        debugInfo += `Coordonnées du point PK: ${nearest.lat}, ${nearest.lon}`;
       }
     }
+    
+    // Affiche dans une popup
+    alert(debugInfo);
+  }, err => {
+    alert("Erreur GPS pour debug: " + err.message);
   });
 }
+
 
   </script>
 </body>

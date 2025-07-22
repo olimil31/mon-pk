@@ -267,291 +267,318 @@
 
   <script>
     let currentZoneCode = null;
-    let pkScript = null;
-    let lastKnownPK = "--";
-    let nightMode = false;
-    let gpsTimeout;
-    let lastGPSUpdate = Date.now();
-    let watchId = null;
+let pkScript = null;
+let lastKnownPK = "--";
+let nightMode = false;
+let gpsTimeout;
+let lastGPSUpdate = Date.now();
+let watchId = null;
 
-    function getCurrentZone(lat, lon) {
-      for (const zone of zones) {
-        if (
-          lat >= zone.latMin && lat <= zone.latMax &&
-          lon >= zone.lonMin && lon <= zone.lonMax
-        ) return zone.code_ligne;
+// ——— Distance Haversine en mètres ———
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2)**2 +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ——— Zone avec marge de sécurité ———
+function getCurrentZone(lat, lon) {
+  const margin = 0.001; // ≈100m
+  let bestZone = null, bestDist = Infinity;
+  for (const zone of zones) {
+    if (
+      lat >= zone.latMin - margin && lat <= zone.latMax + margin &&
+      lon >= zone.lonMin - margin && lon <= zone.lonMax + margin
+    ) {
+      // Prend la zone dont le centre est le plus proche
+      const zLat = (zone.latMin + zone.latMax) / 2;
+      const zLon = (zone.lonMin + zone.lonMax) / 2;
+      const dist = calculateDistance(lat, lon, zLat, zLon);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestZone = zone.code_ligne;
       }
-      return null;
     }
+  }
+  return bestZone;
+}
 
-    function findNearestPK(lat, lon) {
+// ——— Recherche du PK le plus proche ———
+function findNearestPK(lat, lon, accuracy = 100) {
   if (typeof pkData === "undefined" || !Array.isArray(pkData)) return null;
   if (!lat || !lon || isNaN(lat) || isNaN(lon)) return null;
-  
+
+  // Seuil dynamique : 1km ou 5×accuracy
+  const searchRadius = Math.max(1000, accuracy * 5);
+
   let minDist = Infinity;
   let nearest = null;
-  
+
   for (const point of pkData) {
-    const d = Math.hypot(point.lat - lat, point.lon - lon);
-    const distanceMeters = d * 111000; // Conversion en mètres
-    
-    // NOUVEAU : Rejette les PK à plus de 1km
-    if (distanceMeters < 1000 && d < minDist) {
+    const d = calculateDistance(point.lat, point.lon, lat, lon);
+    if (d < searchRadius && d < minDist) {
       minDist = d;
       nearest = point;
     }
   }
-  
-  // Si aucun point proche trouvé, signaler le problème
+
   if (!nearest) {
-    console.warn("Aucun PK trouvé dans un rayon de 1km");
+    console.warn("Aucun PK trouvé dans un rayon de", searchRadius, "m");
     updateGPSStatus('error', '🔴 Aucun PK proche');
     return null;
   }
-  
   return nearest;
 }
 
-
-    function updateGPSStatus(status, message) {
-      const statusElement = document.getElementById("gps-status");
-      statusElement.className = `gps-${status}`;
-      statusElement.textContent = message;
+// ——— Chargement asynchrone du fichier PK ———
+function loadPKData(zone) {
+  return new Promise((resolve, reject) => {
+    if (pkScript) {
+      pkScript.remove();
+      window.pkData = undefined;
     }
-
-    function updatePrecision(accuracy) {
-      const precisionElement = document.getElementById('gps-precision');
-      if (accuracy && accuracy > 0) {
-        precisionElement.textContent = `Précision GPS : ${accuracy.toFixed(1)} m`;
-      } else {
-        precisionElement.textContent = "";
-      }
-    }
-
-    function toggleFullscreen() {
-      const container = document.getElementById('main');
-      const isFullscreen = container.classList.contains('pk-fullscreen');
-      
-      if (isFullscreen) {
-        // Sortie du plein écran
-        container.classList.remove('pk-fullscreen');
-        container.style.position = '';
-        container.style.top = '';
-        container.style.left = '';
-        container.style.width = '';
-        container.style.height = '';
-        container.style.margin = '';
-        container.style.maxWidth = '';
-      } else {
-        // Entrée en plein écran
-        container.classList.add('pk-fullscreen');
-        
-        // Force les styles en JavaScript aussi
-        container.style.position = 'fixed';
-        container.style.top = '0';
-        container.style.left = '0';
-        container.style.width = '100vw';
-        container.style.height = '100vh';
-        container.style.margin = '0';
-        container.style.maxWidth = 'none';
-        
-        // Applique la couleur selon le thème
-        if (nightMode) {
-          container.style.background = 'var(--bg-dark)';
-          document.getElementById('pk-value').style.color = 'var(--green-fluo)';
-        } else {
-          container.style.background = 'var(--bg-light)';
-          document.getElementById('pk-value').style.color = 'var(--sncf-blue)';
-        }
-      }
-    }
-
-    function resetGPSTimeout() {
-      clearTimeout(gpsTimeout);
-      lastGPSUpdate = Date.now();
-      updateGPSStatus('ok', '🟢 GPS connecté');
-      
-      gpsTimeout = setTimeout(() => {
-        console.log("GPS timeout - relance");
-        updateGPSStatus('lost', '🟠 GPS perdu - reconnexion...');
-        startWatch();
-      }, 30000);
-    }
-
-    function updateDisplay(lat, lon) {
-      const zoneCode = getCurrentZone(lat, lon);
-      if (!zoneCode) {
-        document.getElementById("pk-value").textContent = "--";
-        updateGPSStatus('error', '🔴 Zone inconnue');
-        return;
-      }
-
-      const timeSinceLastUpdate = Date.now() - lastGPSUpdate;
-      const forceReload = timeSinceLastUpdate > 60000;
-
-      if (zoneCode !== currentZoneCode || forceReload) {
-        currentZoneCode = zoneCode;
-        if (pkScript) {
-          pkScript.remove();
-          window.pkData = undefined;
-        }
-
-        pkScript = document.createElement("script");
-        pkScript.src = `pks_${zoneCode}.js?t=${Date.now()}`;
-        pkScript.onload = () => {
-          const nearest = findNearestPK(lat, lon);
-          if (nearest) {
-            lastKnownPK = nearest.pk.toFixed(2);
-            const pkElement = document.getElementById("pk-value");
-            pkElement.classList.add("pk-updating");
-            pkElement.textContent = lastKnownPK;
-            setTimeout(() => pkElement.classList.remove("pk-updating"), 300);
-          }
-        };
-        pkScript.onerror = () => {
-          document.getElementById("pk-value").textContent = "Zone inconnue";
-          updateGPSStatus('error', '🔴 Erreur chargement zone');
-        };
-        document.head.appendChild(pkScript);
-      } else {
-        const nearest = findNearestPK(lat, lon);
-        if (nearest) {
-          lastKnownPK = nearest.pk.toFixed(2);
-          document.getElementById("pk-value").textContent = lastKnownPK;
-        }
-      }
-    }
-
-    function forceRefresh() {
-      currentZoneCode = null;
-      lastKnownPK = "--";
-      updateGPSStatus('error', '🔄 Actualisation...');
-      
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const { latitude, longitude, speed, accuracy } = pos.coords;
-          updateDisplay(latitude, longitude);
-          updateSpeed(speed);
-          updatePrecision(accuracy);
-          resetGPSTimeout();
-        },
-        err => {
-          console.error("Erreur lors du refresh:", err);
-          document.getElementById("pk-value").textContent = "Erreur GPS";
-          updateGPSStatus('error', '🔴 Erreur GPS');
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
-    }
-
-    function updateSpeed(speed) {
-      if (speed !== null && speed >= 0) {
-        const v = (speed * 3.6).toFixed(1);
-        document.getElementById("speed").textContent = `Vitesse : ${v} km/h`;
-      } else {
-        document.getElementById("speed").textContent = "Vitesse : --";
-      }
-    }
-
-    function toggleTheme() {
-      nightMode = !nightMode;
-      document.body.classList.toggle("night", nightMode);
-      localStorage.setItem("nightMode", nightMode ? "1" : "0");
-    }
-
-    function startWatch() {
-      if (!navigator.geolocation) {
-        alert("Géolocalisation non supportée.");
-        updateGPSStatus('error', '🔴 GPS non supporté');
-        return;
-      }
-
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-
-      updateGPSStatus('error', '🔄 Connexion GPS...');
-
-      watchId = navigator.geolocation.watchPosition(
-        pos => {
-          const { latitude, longitude, speed, accuracy } = pos.coords;
-          updateDisplay(latitude, longitude);
-          updateSpeed(speed);
-          updatePrecision(accuracy);
-          resetGPSTimeout();
-        },
-        err => {
-          console.error("Erreur GPS:", err);
-          document.getElementById("pk-value").textContent = lastKnownPK || "Erreur GPS";
-          updateGPSStatus('error', '🔴 Erreur GPS');
-          
-          setTimeout(() => {
-            if (document.visibilityState === 'visible') {
-              startWatch();
-            }
-          }, 5000);
-        },
-        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
-      );
-    }
-
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        console.log("Application redevient active");
-        forceRefresh();
-      }
-    });
-
-    let lastTime = Date.now();
-    setInterval(() => {
-      const currentTime = Date.now();
-      if (currentTime > lastTime + 2000) {
-        console.log("Réveil détecté");
-        if (document.visibilityState === 'visible') {
-          forceRefresh();
-        }
-      }
-      lastTime = currentTime;
-    }, 1000);
-
-    if (navigator.permissions) {
-      navigator.permissions.query({name: 'geolocation'}).then(result => {
-        if (result.state === 'denied') {
-          alert('Géolocalisation refusée. Activez-la dans les paramètres.');
-          updateGPSStatus('error', '🔴 GPS refusé');
-        }
-      });
-    }
-
-    window.onload = () => {
-      if (localStorage.getItem("nightMode") === "1") toggleTheme();
-      startWatch();
+    pkScript = document.createElement("script");
+    pkScript.src = `pks_${zone}.js?t=${Date.now()}`;
+    pkScript.onload = () => {
+      if (Array.isArray(pkData) && pkData.length) resolve();
+      else reject(new Error("pkData vide"));
     };
+    pkScript.onerror = () => reject(new Error("Erreur chargement"));
+    document.head.appendChild(pkScript);
+    setTimeout(() => reject(new Error("Timeout")), 10000);
+  });
+}
 
+// ——— Affichage statut GPS ———
+function updateGPSStatus(status, message) {
+  const statusElement = document.getElementById("gps-status");
+  statusElement.className = `gps-${status}`;
+  statusElement.textContent = message;
+}
 
-// FONCTION DEBUG TEMPORAIRE
+// ——— Affichage précision GPS ———
+function updatePrecision(accuracy) {
+  const precisionElement = document.getElementById('gps-precision');
+  if (accuracy && accuracy > 0) {
+    precisionElement.textContent = `Précision GPS : ${accuracy.toFixed(1)} m`;
+  } else {
+    precisionElement.textContent = "";
+  }
+}
+
+// ——— Plein écran ———
+function toggleFullscreen() {
+  const container = document.getElementById('main');
+  const isFullscreen = container.classList.contains('pk-fullscreen');
+  if (isFullscreen) {
+    container.classList.remove('pk-fullscreen');
+    container.style = '';
+  } else {
+    container.classList.add('pk-fullscreen');
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '100vw';
+    container.style.height = '100vh';
+    container.style.margin = '0';
+    container.style.maxWidth = 'none';
+    container.style.background = nightMode ? 'var(--bg-dark)' : 'var(--bg-light)';
+    document.getElementById('pk-value').style.color = nightMode ? 'var(--green-fluo)' : 'var(--sncf-blue)';
+  }
+}
+
+// ——— Timeout GPS ———
+function resetGPSTimeout() {
+  clearTimeout(gpsTimeout);
+  lastGPSUpdate = Date.now();
+  updateGPSStatus('ok', '🟢 GPS connecté');
+  gpsTimeout = setTimeout(() => {
+    updateGPSStatus('lost', '🟠 GPS perdu - reconnexion...');
+    startWatch();
+  }, 30000);
+}
+
+// ——— Affichage vitesse ———
+function updateSpeed(speed) {
+  if (speed !== null && speed >= 0) {
+    const v = (speed * 3.6).toFixed(1);
+    document.getElementById("speed").textContent = `Vitesse : ${v} km/h`;
+  } else {
+    document.getElementById("speed").textContent = "Vitesse : --";
+  }
+}
+
+// ——— Thème nuit/jour ———
+function toggleTheme() {
+  nightMode = !nightMode;
+  document.body.classList.toggle("night", nightMode);
+  localStorage.setItem("nightMode", nightMode ? "1" : "0");
+}
+
+// ——— Affichage principal ———
+async function updateDisplay(lat, lon, accuracy = 100) {
+  // Filtrage GPS imprécis
+  if (accuracy > 500) {
+    updateGPSStatus('error', '🟠 GPS imprécis');
+    document.getElementById("pk-value").textContent = "--";
+    return;
+  }
+
+  const zoneCode = getCurrentZone(lat, lon);
+  if (!zoneCode) {
+    document.getElementById("pk-value").textContent = "--";
+    updateGPSStatus('error', '🔴 Zone inconnue');
+    return;
+  }
+
+  const timeSinceLastUpdate = Date.now() - lastGPSUpdate;
+  const forceReload = timeSinceLastUpdate > 60000;
+
+  if (zoneCode !== currentZoneCode || forceReload || typeof pkData === "undefined") {
+    currentZoneCode = zoneCode;
+    try {
+      await loadPKData(zoneCode);
+      const nearest = findNearestPK(lat, lon, accuracy);
+      if (nearest) {
+        lastKnownPK = nearest.pk.toFixed(2);
+        const pkElement = document.getElementById("pk-value");
+        pkElement.classList.add("pk-updating");
+        pkElement.textContent = lastKnownPK;
+        setTimeout(() => pkElement.classList.remove("pk-updating"), 300);
+      }
+    } catch (e) {
+      document.getElementById("pk-value").textContent = "Zone inconnue";
+      updateGPSStatus('error', '🔴 Erreur chargement zone');
+    }
+  } else {
+    const nearest = findNearestPK(lat, lon, accuracy);
+    if (nearest) {
+      lastKnownPK = nearest.pk.toFixed(2);
+      document.getElementById("pk-value").textContent = lastKnownPK;
+    }
+  }
+}
+
+// ——— Actualisation forcée ———
+function forceRefresh() {
+  currentZoneCode = null;
+  lastKnownPK = "--";
+  updateGPSStatus('error', '🔄 Actualisation...');
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude, longitude, speed, accuracy } = pos.coords;
+      updateDisplay(latitude, longitude, accuracy);
+      updateSpeed(speed);
+      updatePrecision(accuracy);
+      resetGPSTimeout();
+    },
+    err => {
+      document.getElementById("pk-value").textContent = "Erreur GPS";
+      updateGPSStatus('error', '🔴 Erreur GPS');
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+  );
+}
+
+// ——— Surveillance GPS ———
+function startWatch() {
+  if (!navigator.geolocation) {
+    alert("Géolocalisation non supportée.");
+    updateGPSStatus('error', '🔴 GPS non supporté');
+    return;
+  }
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+  }
+  updateGPSStatus('error', '🔄 Connexion GPS...');
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const { latitude, longitude, speed, accuracy } = pos.coords;
+      updateDisplay(latitude, longitude, accuracy);
+      updateSpeed(speed);
+      updatePrecision(accuracy);
+      resetGPSTimeout();
+    },
+    err => {
+      document.getElementById("pk-value").textContent = lastKnownPK || "Erreur GPS";
+      updateGPSStatus('error', '🔴 Erreur GPS');
+      setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          startWatch();
+        }
+      }, 5000);
+    },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+  );
+}
+
+// ——— Gestion veille/réveil ———
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    forceRefresh();
+    startWatch();
+  }
+});
+
+// ——— Détection réveil système ———
+let lastTime = Date.now();
+setInterval(() => {
+  const currentTime = Date.now();
+  if (currentTime > lastTime + 2000) {
+    if (document.visibilityState === 'visible') {
+      forceRefresh();
+    }
+  }
+  lastTime = currentTime;
+}, 1000);
+
+// ——— Permissions ———
+if (navigator.permissions) {
+  navigator.permissions.query({name: 'geolocation'}).then(result => {
+    if (result.state === 'denied') {
+      alert('Géolocalisation refusée. Activez-la dans les paramètres.');
+      updateGPSStatus('error', '🔴 GPS refusé');
+    }
+  });
+}
+
+// ——— Initialisation ———
+window.onload = () => {
+  if (localStorage.getItem("nightMode") === "1") toggleTheme();
+  startWatch();
+};
+
+// ——— DEBUG ———
 function debugPK() {
   navigator.geolocation.getCurrentPosition(pos => {
-    const { latitude, longitude } = pos.coords;
+    const { latitude, longitude, accuracy } = pos.coords;
     const zoneCode = getCurrentZone(latitude, longitude);
-    
+
     let debugInfo = "=== DEBUG PK ===\n";
     debugInfo += `Position: ${latitude}, ${longitude}\n`;
+    debugInfo += `Précision: ${accuracy} m\n`;
     debugInfo += `Zone détectée: ${zoneCode}\n`;
     debugInfo += `Script chargé: ${pkScript ? pkScript.src : "aucun"}\n`;
     debugInfo += `Nombre de points PK: ${typeof pkData !== "undefined" ? pkData.length : "pkData non défini"}\n`;
-    
+
     if (typeof pkData !== "undefined" && pkData.length > 0) {
-      const nearest = findNearestPK(latitude, longitude);
+      const nearest = findNearestPK(latitude, longitude, accuracy);
       if (nearest) {
-        const distance = Math.hypot(nearest.lat - latitude, nearest.lon - longitude);
+        const distance = calculateDistance(nearest.lat, nearest.lon, latitude, longitude);
         debugInfo += `PK le plus proche: ${nearest.pk}\n`;
-        debugInfo += `Distance: ${(distance * 111000).toFixed(1)} mètres\n`;
+        debugInfo += `Distance: ${distance.toFixed(1)} mètres\n`;
         debugInfo += `Coordonnées du point PK: ${nearest.lat}, ${nearest.lon}`;
       }
     }
-    
-    // Affiche dans une popup
     alert(debugInfo);
   }, err => {
     alert("Erreur GPS pour debug: " + err.message);

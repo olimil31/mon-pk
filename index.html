@@ -275,7 +275,7 @@
   </div>
 
   <script>
-    let currentZoneCode = null;
+   let currentZoneCode = null;
 let pkScript = null;
 let lastKnownPK = "--";
 let nightMode = false;
@@ -283,7 +283,7 @@ let gpsTimeout;
 let lastGPSUpdate = Date.now();
 let watchId = null;
 
-// ——— Distance Haversine ———
+// --- Distance Haversine ---
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const φ1 = lat1 * Math.PI / 180;
@@ -294,50 +294,16 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ——— Zone ———
-function getCurrentZone(lat, lon) {
+// --- Liste des zones contenant le point ---
+function getZonesCoveringPoint(lat, lon) {
   const margin = 0.001;
-  let bestZone = null, bestDist = Infinity;
-  for (const zone of zones) {
-    if (
-      lat >= zone.latMin - margin && lat <= zone.latMax + margin &&
-      lon >= zone.lonMin - margin && lon <= zone.lonMax + margin
-    ) {
-      const zLat = (zone.latMin + zone.latMax) / 2;
-      const zLon = (zone.lonMin + zone.lonMax) / 2;
-      const dist = calculateDistance(lat, lon, zLat, zLon);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestZone = zone.code_ligne;
-      }
-    }
-  }
-  return bestZone;
+  return zones.filter(zone =>
+    lat >= zone.latMin - margin && lat <= zone.latMax + margin &&
+    lon >= zone.lonMin - margin && lon <= zone.lonMax + margin
+  ).map(z => z.code_ligne);
 }
 
-// ——— PK le plus proche (avec distance) ———
-function findNearestPK(lat, lon, accuracy = 100) {
-  if (typeof pkData === "undefined" || !Array.isArray(pkData)) return null;
-  if (!lat || !lon || isNaN(lat) || isNaN(lon)) return null;
-  const searchRadius = Math.max(1000, accuracy * 5);
-  let minDist = Infinity;
-  let nearest = null;
-  for (const point of pkData) {
-    const d = calculateDistance(point.lat, point.lon, lat, lon);
-    if (d < searchRadius && d < minDist) {
-      minDist = d;
-      nearest = point;
-      nearest.distance = d; // Pour debug
-    }
-  }
-  if (!nearest) {
-    updateGPSStatus('error', '🔴 Aucun PK proche');
-    return null;
-  }
-  return nearest;
-}
-
-// ——— Chargement du fichier PK ———
+// --- Chargement fichier PK ---
 function loadPKData(zone) {
   return new Promise((resolve, reject) => {
     if (pkScript) {
@@ -356,14 +322,52 @@ function loadPKData(zone) {
   });
 }
 
-// ——— Statut GPS ———
+// --- PK le plus proche pour un fichier PK ---
+function findNearestPK(lat, lon, accuracy = 100) {
+  if (typeof pkData === "undefined" || !Array.isArray(pkData)) return null;
+  if (!lat || !lon || isNaN(lat) || isNaN(lon)) return null;
+  const searchRadius = Math.max(1000, accuracy * 5);
+  let minDist = Infinity;
+  let nearest = null;
+  for (const point of pkData) {
+    const d = calculateDistance(point.lat, point.lon, lat, lon);
+    if (d < searchRadius && d < minDist) {
+      minDist = d;
+      nearest = point;
+      nearest.distance = d;
+    }
+  }
+  return nearest;
+}
+
+// --- Recherche sur toutes les zones couvrantes ---
+async function findAnyNearestPK(lat, lon, accuracy = 100) {
+  let zoneCodes = getZonesCoveringPoint(lat, lon);
+  let bestPK = null, bestDist = Infinity, bestZone = null;
+  // Priorité à la zone courante
+  if (zoneCodes.length > 1 && currentZoneCode && zoneCodes.includes(currentZoneCode)) {
+    zoneCodes = [currentZoneCode, ...zoneCodes.filter(z => z !== currentZoneCode)];
+  }
+  for (const code of zoneCodes) {
+    try {
+      await loadPKData(code);
+      const cand = findNearestPK(lat, lon, accuracy);
+      if (cand && cand.distance < bestDist) {
+        bestDist = cand.distance;
+        bestPK = Object.assign({}, cand);
+        bestZone = code;
+      }
+    } catch(e){}
+  }
+  return { pk: bestPK, zone: bestZone, dist: bestDist };
+}
+
+// --- Statut et précision GPS ---
 function updateGPSStatus(status, message) {
   const statusElement = document.getElementById("gps-status");
   statusElement.className = `gps-${status}`;
   statusElement.textContent = message;
 }
-
-// ——— Précision GPS ———
 function updatePrecision(accuracy) {
   const precisionElement = document.getElementById('gps-precision');
   if (accuracy && accuracy > 0) {
@@ -373,7 +377,7 @@ function updatePrecision(accuracy) {
   }
 }
 
-// ——— Plein écran ———
+// --- Plein écran ---
 function toggleFullscreen() {
   const container = document.getElementById('main');
   const isFullscreen = container.classList.contains('pk-fullscreen');
@@ -394,7 +398,7 @@ function toggleFullscreen() {
   }
 }
 
-// ——— Timeout GPS ———
+// --- Timeout GPS ---
 function resetGPSTimeout() {
   clearTimeout(gpsTimeout);
   lastGPSUpdate = Date.now();
@@ -405,7 +409,7 @@ function resetGPSTimeout() {
   }, 30000);
 }
 
-// ——— Affichage vitesse ———
+// --- Affichage vitesse ---
 function updateSpeed(speed) {
   if (speed !== null && speed >= 0) {
     const v = (speed * 3.6).toFixed(1);
@@ -415,54 +419,39 @@ function updateSpeed(speed) {
   }
 }
 
-// ——— Thème nuit/jour ———
+// --- Thème nuit/jour ---
 function toggleTheme() {
   nightMode = !nightMode;
   document.body.classList.toggle("night", nightMode);
   localStorage.setItem("nightMode", nightMode ? "1" : "0");
 }
 
-// ——— Affichage principal ———
+// --- Affichage principal : recherche multi-zones ---
 async function updateDisplay(lat, lon, accuracy = 100) {
   if (accuracy > 500) {
     updateGPSStatus('error', '🟠 GPS imprécis');
     document.getElementById("pk-value").textContent = "--";
     return;
   }
-  const zoneCode = getCurrentZone(lat, lon);
-  if (!zoneCode) {
+  const zonesList = getZonesCoveringPoint(lat, lon);
+  if (!zonesList.length) {
     document.getElementById("pk-value").textContent = "--";
     updateGPSStatus('error', '🔴 Zone inconnue');
     return;
   }
-  const timeSinceLastUpdate = Date.now() - lastGPSUpdate;
-  const forceReload = timeSinceLastUpdate > 60000;
-  if (zoneCode !== currentZoneCode || forceReload || typeof pkData === "undefined") {
-    currentZoneCode = zoneCode;
-    try {
-      await loadPKData(zoneCode);
-      const nearest = findNearestPK(lat, lon, accuracy);
-      if (nearest) {
-        lastKnownPK = nearest.pk.toFixed(2);
-        const pkElement = document.getElementById("pk-value");
-        pkElement.classList.add("pk-updating");
-        pkElement.textContent = lastKnownPK;
-        setTimeout(() => pkElement.classList.remove("pk-updating"), 300);
-      }
-    } catch (e) {
-      document.getElementById("pk-value").textContent = "Zone inconnue";
-      updateGPSStatus('error', '🔴 Erreur chargement zone');
-    }
+  const { pk: nearest, zone: usedZone } = await findAnyNearestPK(lat, lon, accuracy);
+  if (nearest) {
+    lastKnownPK = nearest.pk.toFixed(2);
+    document.getElementById("pk-value").textContent = lastKnownPK;
+    document.getElementById("pk-label").textContent = `Ligne ${usedZone} (multi)`;
   } else {
-    const nearest = findNearestPK(lat, lon, accuracy);
-    if (nearest) {
-      lastKnownPK = nearest.pk.toFixed(2);
-      document.getElementById("pk-value").textContent = lastKnownPK;
-    }
+    document.getElementById("pk-value").textContent = "--";
+    document.getElementById("pk-label").textContent = "Aucun PK sur voies locales";
+    updateGPSStatus('error', '🔴 Aucun PK trouvé sur lignes voisines');
   }
 }
 
-// ——— Actualisation forcée ———
+// --- Actualisation forcée ---
 function forceRefresh() {
   currentZoneCode = null;
   lastKnownPK = "--";
@@ -483,7 +472,7 @@ function forceRefresh() {
   );
 }
 
-// ——— Surveillance GPS ———
+// --- Surveillance GPS ---
 function startWatch() {
   if (!navigator.geolocation) {
     alert("Géolocalisation non supportée.");
@@ -515,7 +504,7 @@ function startWatch() {
   );
 }
 
-// ——— Gestion veille/réveil ———
+// --- Gestion veille/réveil ---
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
@@ -524,7 +513,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ——— Détection réveil système ———
+// --- Détection réveil système ---
 let lastTime = Date.now();
 setInterval(() => {
   const currentTime = Date.now();
@@ -536,7 +525,7 @@ setInterval(() => {
   lastTime = currentTime;
 }, 1000);
 
-// ——— Permissions ———
+// --- Permissions ---
 if (navigator.permissions) {
   navigator.permissions.query({name: 'geolocation'}).then(result => {
     if (result.state === 'denied') {
@@ -546,54 +535,53 @@ if (navigator.permissions) {
   });
 }
 
-// ——— Initialisation ———
+// --- Initialisation ---
 window.onload = () => {
   if (localStorage.getItem("nightMode") === "1") toggleTheme();
   startWatch();
 };
 
-// ——— DEBUG ———
+// --- DEBUG (multi-lignes) ---
 function debugPK() {
   try {
     if (!navigator.geolocation) {
       alert("Géolocalisation non disponible");
       return;
     }
-    navigator.geolocation.getCurrentPosition(pos => {
+    navigator.geolocation.getCurrentPosition(async pos => {
       const { latitude, longitude, accuracy } = pos.coords;
-      const nearest = (typeof findNearestPK === "function") ? findNearestPK(latitude, longitude, accuracy) : null;
+      const zonesList = getZonesCoveringPoint(latitude, longitude);
       let debug = [];
-      debug.push("=== DEBUG PK ===");
+      debug.push("=== DEBUG PK (multi-lignes) ===");
       debug.push("Position GPS : " + latitude.toFixed(7) + ", " + longitude.toFixed(7));
       debug.push("Précision GPS : " + (accuracy ? accuracy.toFixed(1) + " m" : "N/A"));
-      debug.push("Données PK chargées : " + (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length ? "OUI" : "NON"));
-      debug.push("Nombre total PK zone : " + (Array.isArray(pkData) ? pkData.length : "N/A"));
-      if (nearest) {
-        debug.push("");
-        debug.push("PK trouvé : " + nearest.pk.toFixed(3));
-        debug.push("Ligne : " + (nearest.code_ligne || "N/A"));
-        debug.push("Distance : " + (nearest.distance ? nearest.distance.toFixed(1) : "calcul à ajouter") + " m");
-        debug.push("Coordonnées PK : " + nearest.lat.toFixed(7) + ", " + nearest.lon.toFixed(7));
-      } else {
-        debug.push("");
-        debug.push("AUCUN PK TROUVÉ !");
-        if (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length) {
-          let dists = pkData.map(p => ({
-            pk: p.pk,
-            code_ligne: p.code_ligne || "N/A",
-            dist: calculateDistance(latitude, longitude, p.lat, p.lon),
-            lat: p.lat,
-            lon: p.lon
-          }));
-          dists.sort((a, b) => a.dist - b.dist);
-          debug.push("");
-          debug.push("*** 3 PK les plus proches ***");
-          for (let i = 0; i < Math.min(3, dists.length); i++) {
-            debug.push(`[${i+1}] PK: ${dists[i].pk.toFixed(3)} (${dists[i].code_ligne})`);
-            debug.push(`     Distance: ${dists[i].dist.toFixed(1)} m`);
-            debug.push(`     Coord: ${dists[i].lat.toFixed(7)}, ${dists[i].lon.toFixed(7)}`);
+      debug.push("Zones candidates : " + (zonesList.length ? zonesList.join(', ') : "Aucune"));
+      let found = false;
+      let allNearest = [];
+      for (const z of zonesList) {
+        try {
+          await loadPKData(z);
+          const nearest = findNearestPK(latitude, longitude, accuracy);
+          if (nearest) {
+            allNearest.push({zone:z, ...nearest});
           }
+        } catch(e){}
+      }
+      if (allNearest.length) {
+        found = true;
+        allNearest.sort((a,b)=>a.distance-b.distance);
+        const n = allNearest[0];
+        debug.push(`\n=== PK le plus proche sur zones candidates ===`);
+        debug.push(`PK: ${n.pk.toFixed(3)} -- Ligne: ${n.zone} -- Dist: ${n.distance.toFixed(1)}m`);
+        debug.push(`Coord: ${n.lat.toFixed(7)}, ${n.lon.toFixed(7)}`);
+        debug.push("\n--- Tous les PK trouvés (triés distance) ---");
+        for(let i=0;i<Math.min(3,allNearest.length);i++) {
+          const m = allNearest[i];
+          debug.push(`[${i+1}] PK: ${m.pk.toFixed(3)} -- Ligne: ${m.zone} à ${m.distance.toFixed(1)}m (${m.lat.toFixed(7)},${m.lon.toFixed(7)})`);
         }
+      }
+      if (!found) {
+        debug.push("\nAUCUN PK TROUVÉ sur les zones candidates !");
       }
       const out = document.getElementById("debug-output");
       out.textContent = debug.join('\n');
@@ -609,8 +597,8 @@ function debugPK() {
   }
 }
 
-// ——— TEST MANUEL DE PK ———
-function testManualPK() {
+// --- TEST MANUEL DE PK (multi-lignes) ---
+async function testManualPK() {
   try {
     const lat = parseFloat(document.getElementById("manual-lat").value);
     const lon = parseFloat(document.getElementById("manual-lon").value);
@@ -618,39 +606,37 @@ function testManualPK() {
       alert("Merci de saisir une latitude et une longitude valides.");
       return;
     }
-    const nearest = (typeof findNearestPK === "function") ? findNearestPK(lat, lon, 10) : null;
+    const zonesList = getZonesCoveringPoint(lat, lon);
     let debug = [];
-    debug.push("=== TEST PK manuel ===");
+    debug.push("=== TEST PK manuel (multi-lignes) ===");
     debug.push("Position GPS : " + lat.toFixed(7) + ", " + lon.toFixed(7));
-    debug.push("Précision (simulée) : 10 m");
-    debug.push("Données PK chargées : " + (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length ? "OUI" : "NON"));
-    debug.push("Nombre total PK zone : " + (Array.isArray(pkData) ? pkData.length : "N/A"));
-    if (nearest) {
-      debug.push("");
-      debug.push("PK trouvé : " + nearest.pk.toFixed(3));
-      debug.push("Ligne : " + (nearest.code_ligne || "N/A"));
-      debug.push("Distance : " + (nearest.distance ? nearest.distance.toFixed(1) : "calcul à ajouter") + " m");
-      debug.push("Coordonnées PK : " + nearest.lat.toFixed(7) + ", " + nearest.lon.toFixed(7));
-    } else {
-      debug.push("");
-      debug.push("AUCUN PK TROUVÉ !");
-      if (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length) {
-        let dists = pkData.map(p => ({
-          pk: p.pk,
-          code_ligne: p.code_ligne || "N/A",
-          dist: calculateDistance(lat, lon, p.lat, p.lon),
-          lat: p.lat,
-          lon: p.lon
-        }));
-        dists.sort((a, b) => a.dist - b.dist);
-        debug.push("");
-        debug.push("*** 3 PK les plus proches ***");
-        for (let i = 0; i < Math.min(3, dists.length); i++) {
-          debug.push(`[${i+1}] PK: ${dists[i].pk.toFixed(3)} (${dists[i].code_ligne})`);
-          debug.push(`     Distance: ${dists[i].dist.toFixed(1)} m`);
-          debug.push(`     Coord: ${dists[i].lat.toFixed(7)}, ${dists[i].lon.toFixed(7)}`);
+    debug.push("Zones candidates : " + (zonesList.length ? zonesList.join(', ') : "Aucune"));
+    let found = false;
+    let allNearest = [];
+    for (const z of zonesList) {
+      try {
+        await loadPKData(z);
+        const nearest = findNearestPK(lat, lon, 10);
+        if (nearest) {
+          allNearest.push({zone:z, ...nearest});
         }
+      } catch(e){}
+    }
+    if (allNearest.length) {
+      found = true;
+      allNearest.sort((a,b)=>a.distance-b.distance);
+      const n = allNearest[0];
+      debug.push(`\n=== PK le plus proche sur zones candidates ===`);
+      debug.push(`PK: ${n.pk.toFixed(3)} -- Ligne: ${n.zone} -- Dist: ${n.distance.toFixed(1)}m`);
+      debug.push(`Coord: ${n.lat.toFixed(7)}, ${n.lon.toFixed(7)}`);
+      debug.push("\n--- Tous les PK trouvés (triés distance) ---");
+      for(let i=0;i<Math.min(3,allNearest.length);i++) {
+        const m = allNearest[i];
+        debug.push(`[${i+1}] PK: ${m.pk.toFixed(3)} -- Ligne: ${m.zone} à ${m.distance.toFixed(1)}m (${m.lat.toFixed(7)},${m.lon.toFixed(7)})`);
       }
+    }
+    if (!found) {
+      debug.push("\nAUCUN PK TROUVÉ sur les zones candidates !");
     }
     const out = document.getElementById("debug-output");
     out.textContent = debug.join('\n');
@@ -662,6 +648,7 @@ function testManualPK() {
     out.style.display = "block";
   }
 }
+
 
   </script>
 </body>

@@ -250,6 +250,12 @@
 </head>
 <body>
 
+   <div id="debug-manual" style="margin:1em 0; background:#eee; padding:1em; border-radius:8px;">
+  <label>Latitude : <input id="manual-lat" type="number" step="any" style="width:120px;"></label>
+  <label>Longitude : <input id="manual-lon" type="number" step="any" style="width:120px;"></label>
+  <button onclick="testManualPK()" style="margin-left:1em;">Tester PK</button>
+</div>
+
    <div id="debug-output" style="white-space:pre-wrap; font-size:1em; background:#f4f4f4; color:#222; border:1px dashed #888; margin:1em 0; padding:1em; display:none;"></div>
 
   <div class="container" id="main">
@@ -617,6 +623,60 @@ function debugPK() {
   }, err => {
     alert("Erreur GPS pour debug: " + err.message);
   }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+}
+function testManualPK() {
+  const lat = parseFloat(document.getElementById("manual-lat").value);
+  const lon = parseFloat(document.getElementById("manual-lon").value);
+  if (isNaN(lat) || isNaN(lon)) {
+    alert("Merci de saisir une latitude et une longitude valides.");
+    return;
+  }
+  // Utilise la même logique que debugPK mais avec la position manuelle
+  const nearest = (typeof findNearestPK === "function") 
+    ? findNearestPK(lat, lon, 10) // "10" m de précision simulée
+    : null;
+
+  let debug = [];
+  debug.push("=== TEST PK manuel ===");
+  debug.push("Position GPS : " + lat.toFixed(7) + ", " + lon.toFixed(7));
+  debug.push("Précision (simulée) : 10 m");
+  debug.push("Données PK chargées : " + (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length ? "OUI" : "NON"));
+  debug.push("Nombre total PK zone : " + (Array.isArray(pkData) ? pkData.length : "N/A"));
+
+  if (nearest) {
+    debug.push("");
+    debug.push("PK trouvé : " + nearest.pk.toFixed(3));
+    debug.push("Ligne : " + (nearest.code_ligne || "N/A"));
+    debug.push("Distance : " + (nearest.distance ? nearest.distance.toFixed(1) : "calcul à ajouter") + " m");
+    debug.push("Coordonnées PK : " + nearest.lat.toFixed(7) + ", " + nearest.lon.toFixed(7));
+  } else {
+    debug.push("");
+    debug.push("AUCUN PK TROUVÉ !");
+    // Montre aussi 3 PK les plus proches
+    if (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length) {
+      let dists = pkData.map(p => ({
+        pk: p.pk,
+        code_ligne: p.code_ligne || "N/A",
+        dist: distMetres(lat, lon, p.lat, p.lon),
+        lat: p.lat,
+        lon: p.lon
+      }));
+      dists.sort((a, b) => a.dist - b.dist);
+      debug.push("");
+      debug.push("*** 3 PK les plus proches ***");
+      for (let i = 0; i < Math.min(3, dists.length); i++) {
+        debug.push(`[${i+1}] PK: ${dists[i].pk.toFixed(3)} (${dists[i].code_ligne})`);
+        debug.push(`     Distance: ${dists[i].dist.toFixed(1)} m`);
+        debug.push(`     Coord: ${dists[i].lat.toFixed(7)}, ${dists[i].lon.toFixed(7)}`);
+      }
+    }
+  }
+
+  // Affiche dans la zone de debug existante
+  const out = document.getElementById("debug-output");
+  out.textContent = debug.join('\n');
+  out.style.display = "block";
+  window.scrollTo(0, out.offsetTop);
 }
 
 

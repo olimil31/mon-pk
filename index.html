@@ -559,30 +559,61 @@ window.onload = () => {
 
 // ——— DEBUG ———
 function debugPK() {
+  if (!navigator.geolocation) {
+    alert("Géolocalisation non disponible");
+    return;
+  }
+
   navigator.geolocation.getCurrentPosition(pos => {
     const { latitude, longitude, accuracy } = pos.coords;
-    const zoneCode = getCurrentZone(latitude, longitude);
+    const nearest = (typeof findNearestPK === "function")
+      ? findNearestPK(latitude, longitude, accuracy)
+      : null;
 
-    let debugInfo = "=== DEBUG PK ===\n";
-    debugInfo += `Position: ${latitude}, ${longitude}\n`;
-    debugInfo += `Précision: ${accuracy} m\n`;
-    debugInfo += `Zone détectée: ${zoneCode}\n`;
-    debugInfo += `Script chargé: ${pkScript ? pkScript.src : "aucun"}\n`;
-    debugInfo += `Nombre de points PK: ${typeof pkData !== "undefined" ? pkData.length : "pkData non défini"}\n`;
+    let debug = [];
+    debug.push("=== DEBUG PK ===");
+    debug.push("Position GPS:  " + latitude.toFixed(7) + ", " + longitude.toFixed(7));
+    debug.push("Précision GPS: " + (accuracy ? accuracy.toFixed(1) + " m" : "N/A"));
+    debug.push("Données PK chargées: " + (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length ? "OUI" : "NON"));
+    debug.push("Nombre total PK zone: " + (Array.isArray(pkData) ? pkData.length : "N/A"));
 
-    if (typeof pkData !== "undefined" && pkData.length > 0) {
-      const nearest = findNearestPK(latitude, longitude, accuracy);
-      if (nearest) {
-        const distance = calculateDistance(nearest.lat, nearest.lon, latitude, longitude);
-        debugInfo += `PK le plus proche: ${nearest.pk}\n`;
-        debugInfo += `Distance: ${distance.toFixed(1)} mètres\n`;
-        debugInfo += `Coordonnées du point PK: ${nearest.lat}, ${nearest.lon}`;
+    if (nearest) {
+      debug.push("");
+      debug.push("PK trouvé: " + nearest.pk.toFixed(3));
+      debug.push("Ligne: " + (nearest.code_ligne || "N/A"));
+      debug.push("Distance: " + (nearest.distance ? nearest.distance.toFixed(1) : "calcul à ajouter") + " m");
+      debug.push("Coordonnées PK: " + nearest.lat.toFixed(7) + ", " + nearest.lon.toFixed(7));
+    } else {
+      debug.push("");
+      debug.push("AUCUN PK TROUVÉ !");
+    }
+
+    // Ajout des 3 PK les plus proches si aucun PK trouvé
+    if (typeof pkData !== "undefined" && Array.isArray(pkData) && pkData.length) {
+      let dists = pkData.map(p => ({
+        pk: p.pk,
+        code_ligne: p.code_ligne || "N/A",
+        dist: distMetres(latitude, longitude, p.lat, p.lon),
+        lat: p.lat,
+        lon: p.lon
+      }));
+      dists.sort((a, b) => a.dist - b.dist);
+      debug.push("");
+      debug.push("*** 3 PK les plus proches ***");
+      for (let i = 0; i < Math.min(3, dists.length); i++) {
+        debug.push(`[${i+1}] PK: ${dists[i].pk.toFixed(3)} (${dists[i].code_ligne})`);
+        debug.push(`     Distance: ${dists[i].dist.toFixed(1)} m`);
+        debug.push(`     Coord: ${dists[i].lat.toFixed(7)}, ${dists[i].lon.toFixed(7)}`);
       }
     }
-    alert(debugInfo);
+
+    // Affiche dans une modale copiable
+    const win = window.open("", "_blank", "width=600,height=500,resizable,scrollbars");
+    win.document.body.innerHTML = `<pre style="font-size:1em;white-space:pre-wrap;">${debug.join('\n')}</pre>`;
+    win.document.title = "Debug PK copiable";
   }, err => {
     alert("Erreur GPS pour debug: " + err.message);
-  });
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
 }
 
 
